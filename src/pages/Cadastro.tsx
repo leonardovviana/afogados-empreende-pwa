@@ -97,20 +97,20 @@ const Cadastro = () => {
       
       <Navigation />
 
-      <main className="flex-1 pt-28 pb-16 px-4">
+      <main className="flex-1 pt-20 md:pt-28 pb-12 md:pb-16 px-4">
         <div className="container mx-auto max-w-3xl">
           {/* Header Card */}
-          <div className="glass-card rounded-3xl p-8 mb-8 text-center animate-bounce-in shadow-mega">
-            <h1 className="text-4xl md:text-5xl font-bold mb-3 text-primary font-['Poppins']">
+          <div className="glass-card rounded-3xl p-6 md:p-8 mb-6 md:mb-8 text-center animate-bounce-in shadow-mega glass-card-hover">
+            <h1 className="text-3xl md:text-5xl font-bold mb-2 md:mb-3 text-primary">
               Cadastro de <span className="gradient-text">Expositor</span>
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-base md:text-lg text-muted-foreground">
               Preencha os dados abaixo e garanta seu espaço na 8ª Feira do Empreendedor
             </p>
           </div>
 
           {/* Form Card */}
-          <div className="glass-card rounded-3xl shadow-mega p-6 md:p-10 animate-fade-in-up hover-lift"
+          <div className="glass-card rounded-3xl shadow-mega p-5 md:p-10 animate-fade-in-up hover-lift glass-card-hover"
                style={{ animationDelay: "0.2s" }}>
 
             <Form {...form}>

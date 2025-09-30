@@ -16,48 +16,50 @@ const Manual = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      <div className="fixed inset-0 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 -z-10"></div>
+      
       <Navigation />
 
-      <main className="flex-1 pt-24 pb-16 bg-gradient-sand">
+      <main className="flex-1 pt-20 md:pt-24 pb-12 md:pb-16 bg-gradient-sand">
         <div className="container mx-auto px-4 max-w-4xl">
-          <div className="bg-card rounded-2xl shadow-elegant p-6 md:p-8 animate-fade-in-up">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="bg-primary/10 p-3 rounded-xl">
-                <FileText className="text-primary" size={32} />
+          <div className="glass-card rounded-3xl shadow-elegant p-5 md:p-8 animate-fade-in-up glass-card-hover">
+            <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">
+              <div className="bg-primary/10 p-2 md:p-3 rounded-xl">
+                <FileText className="text-primary" size={28} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-card-foreground font-['Poppins']">
+                <h1 className="text-2xl md:text-3xl font-bold text-card-foreground">
                   Manual do Expositor
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="text-sm md:text-base text-muted-foreground">
                   Orientações importantes para sua participação
                 </p>
               </div>
             </div>
 
             {/* Download Button */}
-            <div className="bg-accent/10 rounded-xl p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-accent/10 rounded-xl p-4 md:p-6 mb-6 md:mb-8 flex flex-col sm:flex-row items-center justify-between gap-3 md:gap-4">
               <div>
-                <h3 className="font-bold text-accent-foreground mb-1">
+                <h3 className="font-bold text-accent-foreground mb-1 text-sm md:text-base">
                   Manual Completo em PDF
                 </h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground">
                   Baixe o manual completo com todas as informações
                 </p>
               </div>
-              <Button className="bg-accent hover:bg-accent-light shrink-0">
+              <Button className="bg-accent hover:bg-accent-light shrink-0 text-sm">
                 <Download className="mr-2" size={16} />
                 Baixar PDF
               </Button>
             </div>
 
             {/* Informações Gerais */}
-            <section className="mb-8">
-              <h2 className="text-2xl font-bold mb-4 text-card-foreground font-['Poppins']">
+            <section className="mb-6 md:mb-8">
+              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-card-foreground">
                 Informações Gerais
               </h2>
-              <div className="space-y-4 text-muted-foreground">
+              <div className="space-y-3 md:space-y-4 text-sm md:text-base text-muted-foreground">
                 <p>
                   <strong className="text-card-foreground">Data do Evento:</strong> 28 a 30 de Novembro de 2025
                 </p>
@@ -74,29 +76,29 @@ const Manual = () => {
             </section>
 
             {/* Normas */}
-            <section className="mb-8">
-              <h2 className="text-2xl font-bold mb-4 text-card-foreground font-['Poppins']">
+            <section className="mb-6 md:mb-8">
+              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-card-foreground">
                 Normas e Diretrizes
               </h2>
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 {guidelines.map((guideline, index) => (
-                  <div key={index} className="flex items-start gap-3 animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
-                    <CheckCircle className="text-secondary shrink-0 mt-1" size={20} />
-                    <p className="text-muted-foreground">{guideline}</p>
+                  <div key={index} className="flex items-start gap-2 md:gap-3 animate-fade-in" style={{ animationDelay: `${index * 0.05}s` }}>
+                    <CheckCircle className="text-secondary shrink-0 mt-1" size={18} />
+                    <p className="text-sm md:text-base text-muted-foreground">{guideline}</p>
                   </div>
                 ))}
               </div>
             </section>
 
             {/* O que levar */}
-            <section className="mb-8">
-              <h2 className="text-2xl font-bold mb-4 text-card-foreground font-['Poppins']">
+            <section className="mb-6 md:mb-8">
+              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-card-foreground">
                 O Que Levar
               </h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <h3 className="font-bold mb-2 text-card-foreground">Documentação</h3>
-                  <ul className="text-sm text-muted-foreground space-y-1">
+              <div className="grid md:grid-cols-2 gap-3 md:gap-4">
+                <div className="bg-muted/50 rounded-lg p-3 md:p-4">
+                  <h3 className="font-bold mb-2 text-card-foreground text-sm md:text-base">Documentação</h3>
+                  <ul className="text-xs md:text-sm text-muted-foreground space-y-1">
                     <li>• RG e CPF do responsável</li>
                     <li>• CNPJ ou MEI</li>
                     <li>• Alvará de funcionamento</li>
@@ -104,9 +106,9 @@ const Manual = () => {
                   </ul>
                 </div>
 
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <h3 className="font-bold mb-2 text-card-foreground">Material do Stand</h3>
-                  <ul className="text-sm text-muted-foreground space-y-1">
+                <div className="bg-muted/50 rounded-lg p-3 md:p-4">
+                  <h3 className="font-bold mb-2 text-card-foreground text-sm md:text-base">Material do Stand</h3>
+                  <ul className="text-xs md:text-sm text-muted-foreground space-y-1">
                     <li>• Banners e material de divulgação</li>
                     <li>• Produtos para exposição</li>
                     <li>• Material de ponto de venda</li>
@@ -117,14 +119,14 @@ const Manual = () => {
             </section>
 
             {/* Contato */}
-            <section className="bg-primary/10 rounded-xl p-6">
-              <h2 className="text-xl font-bold mb-3 text-primary font-['Poppins']">
+            <section className="bg-primary/10 rounded-xl p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-primary">
                 Dúvidas?
               </h2>
-              <p className="text-muted-foreground mb-4">
+              <p className="text-sm md:text-base text-muted-foreground mb-3 md:mb-4">
                 Entre em contato com nossa equipe de organização:
               </p>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-2 text-xs md:text-sm">
                 <p>
                   <strong>WhatsApp:</strong>{" "}
                   <a href="https://wa.me/5587999999999" className="text-primary hover:underline">

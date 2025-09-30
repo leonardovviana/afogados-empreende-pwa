@@ -56,11 +56,11 @@ const Consulta = () => {
   const getStatusIcon = (status: RegistrationStatus) => {
     switch (status) {
       case "Aprovado":
-        return <CheckCircle2 className="text-secondary" size={48} />;
+        return <CheckCircle2 className="text-secondary" size={40} />;
       case "Recusado":
-        return <XCircle className="text-destructive" size={48} />;
+        return <XCircle className="text-destructive" size={40} />;
       default:
-        return <Clock className="text-accent" size={48} />;
+        return <Clock className="text-accent" size={40} />;
     }
   };
 
@@ -76,34 +76,37 @@ const Consulta = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      <div className="fixed inset-0 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 -z-10"></div>
+      
       <Navigation />
 
-      <main className="flex-1 pt-24 pb-16 bg-gradient-sand">
+      <main className="flex-1 pt-20 md:pt-24 pb-12 md:pb-16 bg-gradient-sand">
         <div className="container mx-auto px-4 max-w-2xl">
-          <div className="bg-card rounded-2xl shadow-elegant p-6 md:p-8 animate-fade-in-up">
-            <h1 className="text-3xl font-bold mb-2 text-card-foreground font-['Poppins']">
+          <div className="glass-card rounded-3xl shadow-elegant p-5 md:p-8 animate-fade-in-up glass-card-hover">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2 text-card-foreground">
               Consultar Cadastro
             </h1>
-            <p className="text-muted-foreground mb-8">
+            <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8">
               Digite seu CPF ou CNPJ para verificar o status da sua inscrição
             </p>
 
-            <form onSubmit={handleSearch} className="space-y-6">
+            <form onSubmit={handleSearch} className="space-y-4 md:space-y-6">
               <div>
-                <Label htmlFor="cpfCnpj">CPF ou CNPJ</Label>
+                <Label htmlFor="cpfCnpj" className="text-sm md:text-base">CPF ou CNPJ</Label>
                 <div className="flex gap-2 mt-2">
                   <Input
                     id="cpfCnpj"
-                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    placeholder="000.000.000-00"
                     value={cpfCnpj}
                     onChange={(e) => setCpfCnpj(e.target.value)}
-                    className="flex-1"
+                    className="flex-1 text-sm md:text-base"
                   />
                   <Button
                     type="submit"
                     className="bg-accent hover:bg-accent-light"
                     disabled={loading}
+                    size="sm"
                   >
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -117,23 +120,23 @@ const Consulta = () => {
 
             {registration && (
               <div
-                className={`mt-8 p-6 rounded-xl border-2 ${getStatusColor(
+                className={`mt-6 md:mt-8 p-5 md:p-6 rounded-xl border-2 ${getStatusColor(
                   registration.status
                 )} animate-scale-in`}
               >
                 <div className="flex flex-col items-center text-center">
-                  <div className="mb-4">{getStatusIcon(registration.status)}</div>
+                  <div className="mb-3 md:mb-4">{getStatusIcon(registration.status)}</div>
                   
-                  <h3 className="text-xl font-bold mb-2 font-['Poppins']">
+                  <h3 className="text-lg md:text-xl font-bold mb-2">
                     {registration.company_name}
                   </h3>
                   
-                  <div className="inline-block px-4 py-2 rounded-lg bg-background/50 mb-4">
-                    <span className="font-semibold">Status: </span>
-                    <span className="font-bold">{registration.status}</span>
+                  <div className="inline-block px-4 py-2 rounded-lg bg-background/50 mb-3 md:mb-4">
+                    <span className="font-semibold text-sm md:text-base">Status: </span>
+                    <span className="font-bold text-sm md:text-base">{registration.status}</span>
                   </div>
 
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     Cadastro realizado em{" "}
                     {new Date(registration.created_at).toLocaleDateString("pt-BR", {
                       day: "2-digit",
@@ -143,19 +146,19 @@ const Consulta = () => {
                   </p>
 
                   {registration.status === "Pendente" && (
-                    <p className="mt-4 text-sm">
+                    <p className="mt-3 md:mt-4 text-xs md:text-sm">
                       Seu cadastro está em análise. Em breve entraremos em contato.
                     </p>
                   )}
 
                   {registration.status === "Aprovado" && (
-                    <p className="mt-4 text-sm">
+                    <p className="mt-3 md:mt-4 text-xs md:text-sm">
                       Parabéns! Seu cadastro foi aprovado. Aguarde instruções por e-mail ou telefone.
                     </p>
                   )}
 
                   {registration.status === "Recusado" && (
-                    <p className="mt-4 text-sm">
+                    <p className="mt-3 md:mt-4 text-xs md:text-sm">
                       Infelizmente seu cadastro não foi aprovado. Entre em contato para mais informações.
                     </p>
                   )}
