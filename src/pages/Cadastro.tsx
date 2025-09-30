@@ -90,18 +90,28 @@ const Cadastro = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 -z-10"></div>
+      <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDRENDAiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDE4YzAtMS4xLjktMiAyLTJzMiAuOSAyIDItLjkgMi0yIDItMi0uOS0yLTJ6bTAgMTZjMC0xLjEuOS0yIDItMnMyIC45IDIgMi0uOSAyLTIgMi0yLS45LTItMnptLTE2IDBjMC0xLjEuOS0yIDItMnMyIC45IDIgMi0uOSAyLTIgMi0yLS45LTItMnptMC0xNmMwLTEuMS45LTIgMi0yczIgLjkgMiAyLS45IDItMiAyLTItLjktMi0yeiIvPjwvZz48L2c+PC9zdmc+')] opacity-10 -z-10"></div>
+      
       <Navigation />
 
-      <main className="flex-1 pt-24 pb-16 bg-gradient-sand">
-        <div className="container mx-auto px-4 max-w-2xl">
-          <div className="bg-card rounded-2xl shadow-elegant p-6 md:p-8 animate-fade-in-up">
-            <h1 className="text-3xl font-bold mb-2 text-card-foreground font-['Poppins']">
-              Cadastro de Expositor
+      <main className="flex-1 pt-28 pb-16 px-4">
+        <div className="container mx-auto max-w-3xl">
+          {/* Header Card */}
+          <div className="glass-card rounded-3xl p-8 mb-8 text-center animate-bounce-in shadow-mega">
+            <h1 className="text-4xl md:text-5xl font-bold mb-3 text-primary font-['Poppins']">
+              Cadastro de <span className="gradient-text">Expositor</span>
             </h1>
-            <p className="text-muted-foreground mb-8">
-              Preencha os dados abaixo para se cadastrar como expositor
+            <p className="text-lg text-muted-foreground">
+              Preencha os dados abaixo e garanta seu espaço na 8ª Feira do Empreendedor
             </p>
+          </div>
+
+          {/* Form Card */}
+          <div className="glass-card rounded-3xl shadow-mega p-6 md:p-10 animate-fade-in-up hover-lift"
+               style={{ animationDelay: "0.2s" }}>
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -252,17 +262,20 @@ const Cadastro = () => {
 
                 <Button
                   type="submit"
-                  className="w-full bg-secondary hover:bg-secondary-light shadow-secondary"
+                  className="w-full bg-gradient-to-r from-secondary to-secondary-light hover:from-secondary-light hover:to-secondary shadow-mega text-white font-bold rounded-2xl relative overflow-hidden group"
                   size="lg"
                   disabled={loading}
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enviando...
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Enviando cadastro...
                     </>
                   ) : (
-                    "Enviar Cadastro"
+                    <>
+                      <span className="relative z-10">ENVIAR CADASTRO</span>
+                      <div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                    </>
                   )}
                 </Button>
               </form>

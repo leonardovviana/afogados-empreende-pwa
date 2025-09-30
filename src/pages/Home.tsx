@@ -1,136 +1,120 @@
 import { Button } from "@/components/ui/button";
-import { Calendar, FileText, Map, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import Countdown from "@/components/Countdown";
 import InstallPrompt from "@/components/InstallPrompt";
 import logo from "@/assets/logo.png";
-import heroBg from "@/assets/hero-bg.jpg";
+import heroImage from "@/assets/hero-bg.jpg";
 
 const Home = () => {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative overflow-hidden">
+      {/* Mesh Gradient Background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-primary via-secondary to-accent opacity-20 -z-10"></div>
+      <div className="fixed inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDRENDAiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE4YzAtMS4xLjktMiAyLTJzMiAuOSAyIDItLjkgMi0yIDItMi0uOS0yLTJ6bTAgMTZjMC0xLjEuOS0yIDItMnMyIC45IDIgMi0uOSAyLTIgMi0yLS45LTItMnptLTE2IDBjMC0xLjEuOS0yIDItMnMyIC45IDIgMi0uOSAyLTIgMi0yLS45LTItMnptMC0xNmMwLTEuMS45LTIgMi0yczIgLjkgMiAyLS45IDItMiAyLTItLjktMi0yeiIvPjwvZz48L2c+PC9zdmc+')] opacity-10 -z-10"></div>
+      
       <Navigation />
       <InstallPrompt />
 
       {/* Hero Section */}
-      <section
-        className="relative min-h-screen flex items-center justify-center bg-gradient-hero pt-16"
-        style={{
-          backgroundImage: `linear-gradient(135deg, rgba(0, 77, 64, 0.95), rgba(76, 175, 80, 0.85)), url(${heroBg})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div className="container mx-auto px-4 py-12 text-center">
-          <div className="animate-fade-in-up">
-            <img
-              src={logo}
-              alt="Logo 8ª Feira do Empreendedor"
-              className="w-32 h-32 mx-auto mb-6 animate-float"
-            />
-            <h1 className="text-4xl md:text-6xl font-bold text-primary-foreground mb-4 font-['Poppins']">
-              8ª Feira do Empreendedor
-            </h1>
-            <p className="text-xl md:text-2xl text-primary-foreground/90 mb-8 font-light">
-              Conectando ideias, transformando o futuro
-            </p>
-          </div>
+      <main className="flex-1 pt-20">
+        <div className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
+          {/* Animated Background */}
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ 
+              backgroundImage: `url(${heroImage})`,
+              animation: "gradient-shift 15s ease infinite",
+              backgroundSize: "120%"
+            }}
+          ></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/95 via-primary/85 to-secondary/90"></div>
 
-          <div className="mb-12 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 inline-block shadow-elegant">
-              <p className="text-primary-foreground mb-6 text-lg font-medium">
-                28 a 30 de Novembro de 2025
+          {/* Floating Elements */}
+          <div className="absolute top-20 left-10 w-32 h-32 bg-secondary/20 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute bottom-20 right-10 w-40 h-40 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: "1s" }}></div>
+
+          <div className="relative z-10 container mx-auto px-4 text-center py-20">
+            <div className="glass-effect rounded-3xl p-8 md:p-12 max-w-4xl mx-auto shadow-mega animate-bounce-in">
+              <img 
+                src={logo} 
+                alt="Logo 8ª Feira do Empreendedor" 
+                className="w-24 h-24 md:w-32 md:h-32 mx-auto mb-6 floating drop-shadow-2xl" 
+              />
+
+              <h1 className="text-4xl md:text-7xl font-bold text-white mb-6 font-['Poppins'] leading-tight">
+                8ª Feira do <span className="gradient-text bg-gradient-to-r from-secondary-light via-accent-light to-sand-light">Empreendedor</span>
+              </h1>
+
+              <p className="text-xl md:text-3xl text-white/90 mb-8 font-['Inter'] font-light">
+                Conectando ideias, transformando o futuro
               </p>
-              <Countdown />
+
+              <div className="mb-10 bg-white/10 rounded-2xl p-6 backdrop-blur-sm border border-white/20">
+                <Countdown />
+              </div>
+
+              <Link to="/cadastro">
+                <Button 
+                  size="lg" 
+                  className="bg-gradient-to-r from-secondary to-secondary-light hover:from-secondary-light hover:to-secondary shadow-mega text-white text-xl px-12 py-8 rounded-2xl font-bold hover-lift animate-pulse-glow relative overflow-hidden group"
+                >
+                  <span className="relative z-10">FAÇA SEU CADASTRO</span>
+                  <div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                </Button>
+              </Link>
             </div>
           </div>
-
-          <div className="animate-fade-in" style={{ animationDelay: "0.4s" }}>
-            <Link to="/cadastro">
-              <Button
-                size="lg"
-                className="bg-secondary hover:bg-secondary-light text-secondary-foreground text-lg px-8 py-6 shadow-secondary hover:shadow-glow transition-all duration-300 hover:scale-105"
-              >
-                FAÇA SEU CADASTRO
-              </Button>
-            </Link>
-          </div>
         </div>
-      </section>
 
-      {/* Quick Actions */}
-      <section className="py-16 bg-gradient-sand">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12 text-primary font-['Poppins']">
-            Acesso Rápido
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            <Link to="/mapa" className="group">
-              <div className="bg-card rounded-xl p-6 shadow-primary hover:shadow-elegant transition-all duration-300 hover:-translate-y-2">
-                <div className="bg-accent/10 w-14 h-14 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors">
-                  <Map className="text-accent" size={28} />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-card-foreground font-['Poppins']">
-                  Mapa do Evento
-                </h3>
-                <p className="text-muted-foreground">
-                  Visualize a localização dos stands e espaços
-                </p>
-              </div>
-            </Link>
-
-            <Link to="/sobre" className="group">
-              <div className="bg-card rounded-xl p-6 shadow-primary hover:shadow-elegant transition-all duration-300 hover:-translate-y-2">
-                <div className="bg-secondary/10 w-14 h-14 rounded-lg flex items-center justify-center mb-4 group-hover:bg-secondary/20 transition-colors">
-                  <Users className="text-secondary" size={28} />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-card-foreground font-['Poppins']">
-                  Conheça o Evento
-                </h3>
-                <p className="text-muted-foreground">
-                  Saiba mais sobre a feira e sua história
-                </p>
-              </div>
-            </Link>
-
-            <Link to="/manual" className="group">
-              <div className="bg-card rounded-xl p-6 shadow-primary hover:shadow-elegant transition-all duration-300 hover:-translate-y-2">
-                <div className="bg-primary/10 w-14 h-14 rounded-lg flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
-                  <FileText className="text-primary" size={28} />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-card-foreground font-['Poppins']">
-                  Manual do Expositor
-                </h3>
-                <p className="text-muted-foreground">
-                  Orientações importantes para expositores
-                </p>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Event Info */}
-      <section className="py-16 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <div className="bg-gradient-accent w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-accent">
-              <Calendar className="text-accent-foreground" size={32} />
-            </div>
-            <h2 className="text-3xl font-bold mb-6 text-foreground font-['Poppins']">
-              Um Evento Para Empreendedores
+        {/* Quick Links - Modern Cards */}
+        <div className="relative py-20 px-4">
+          <div className="container mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-foreground font-['Poppins']">
+              Acesso Rápido
             </h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              A Feira do Empreendedor de Afogados da Ingazeira é o maior evento de negócios
-              da região, reunindo empreendedores, empresários e entusiastas para três dias de
-              networking, oportunidades e crescimento.
-            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              <Link
+                to="/mapa"
+                className="group glass-card p-8 rounded-3xl hover-lift relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="text-6xl mb-4 transform group-hover:scale-110 transition-transform">🗺️</div>
+                  <h3 className="text-2xl font-bold text-primary mb-3 font-['Poppins']">Mapa do Evento</h3>
+                  <p className="text-muted-foreground">Veja a localização e distribuição completa dos stands</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/sobre"
+                className="group glass-card p-8 rounded-3xl hover-lift relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="text-6xl mb-4 transform group-hover:scale-110 transition-transform">ℹ️</div>
+                  <h3 className="text-2xl font-bold text-primary mb-3 font-['Poppins']">Conheça o Evento</h3>
+                  <p className="text-muted-foreground">História, números e tudo sobre nossa feira</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/manual"
+                className="group glass-card p-8 rounded-3xl hover-lift relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative z-10">
+                  <div className="text-6xl mb-4 transform group-hover:scale-110 transition-transform">📋</div>
+                  <h3 className="text-2xl font-bold text-primary mb-3 font-['Poppins']">Manual do Expositor</h3>
+                  <p className="text-muted-foreground">Guia completo com todas as orientações</p>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
-      </section>
+      </main>
 
       <Footer />
     </div>
