@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_profiles: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      exhibitor_registrations: {
+        Row: {
+          business_segment: string
+          company_name: string
+          company_size: Database["public"]["Enums"]["company_size"]
+          cpf_cnpj: string
+          created_at: string
+          id: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          phone: string
+          responsible_name: string
+          stands_quantity: number
+          status: Database["public"]["Enums"]["registration_status"]
+          updated_at: string
+        }
+        Insert: {
+          business_segment: string
+          company_name: string
+          company_size: Database["public"]["Enums"]["company_size"]
+          cpf_cnpj: string
+          created_at?: string
+          id?: string
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          phone: string
+          responsible_name: string
+          stands_quantity?: number
+          status?: Database["public"]["Enums"]["registration_status"]
+          updated_at?: string
+        }
+        Update: {
+          business_segment?: string
+          company_name?: string
+          company_size?: Database["public"]["Enums"]["company_size"]
+          cpf_cnpj?: string
+          created_at?: string
+          id?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          phone?: string
+          responsible_name?: string
+          stands_quantity?: number
+          status?: Database["public"]["Enums"]["registration_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +88,15 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      company_size:
+        | "MEI"
+        | "ME"
+        | "EPP"
+        | "Médio"
+        | "Grande"
+        | "Autônomo informal"
+      payment_method: "À vista" | "Parcelado" | "PIX" | "Boleto"
+      registration_status: "Pendente" | "Aprovado" | "Recusado"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +223,17 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      company_size: [
+        "MEI",
+        "ME",
+        "EPP",
+        "Médio",
+        "Grande",
+        "Autônomo informal",
+      ],
+      payment_method: ["À vista", "Parcelado", "PIX", "Boleto"],
+      registration_status: ["Pendente", "Aprovado", "Recusado"],
+    },
   },
 } as const
