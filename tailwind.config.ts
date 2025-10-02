@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -121,6 +122,11 @@ export default {
           "0%, 100%": { backgroundPosition: "0% 50%" },
           "50%": { backgroundPosition: "100% 50%" },
         },
+        "hero-pan": {
+          "0%": { transform: "scale(1.1) translate3d(0, 0, 0)" },
+          "50%": { transform: "scale(1.2) translate3d(2%, -2%, 0)" },
+          "100%": { transform: "scale(1.1) translate3d(0, 0, 0)" },
+        },
         "shimmer": {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" },
@@ -143,10 +149,11 @@ export default {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "float": "float 3s ease-in-out infinite",
         "gradient-shift": "gradient-shift 3s ease infinite",
+        "hero-pan": "hero-pan 20s ease-in-out infinite",
         "shimmer": "shimmer 2s infinite",
         "bounce-in": "bounce-in 0.8s ease-out",
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;

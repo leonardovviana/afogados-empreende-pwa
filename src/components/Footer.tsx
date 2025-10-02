@@ -1,29 +1,46 @@
-import { Instagram, MessageCircle } from "lucide-react";
+import logoAfadm from "@/assets/logoafadm2.png";
+import logoCdl from "@/assets/logocdl.png";
+import logoFeira from "@/assets/logofeira.png";
+import logoSala from "@/assets/logosala.png";
+import logoSebrae from "@/assets/logosebrae.png";
+import logoUnicef from "@/assets/logounicef.png";
+import { CalendarDays, Instagram, MapPin, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
-    <footer className="relative bg-gradient-to-br from-primary via-primary to-primary-light text-primary-foreground py-8 md:py-12 overflow-hidden">
-      {/* Decorative Elements */}
-      <div className="absolute top-0 left-0 w-48 h-48 md:w-64 md:h-64 bg-secondary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-accent/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
-      
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 mb-6 md:mb-8">
-          <div className="text-center md:text-left">
-            <h3 className="font-bold text-xl md:text-2xl mb-2 md:mb-3">8ª Feira do Empreendedor</h3>
-            <p className="text-sm md:text-base text-primary-foreground/90">📍 Afogados da Ingazeira - PE</p>
-            <p className="text-sm md:text-base text-primary-foreground/90">📅 28 a 30 de novembro de 2025</p>
-          </div>
-
-          <div className="flex flex-col items-center gap-3 md:gap-4">
-            <p className="text-xs md:text-sm text-primary-foreground/80 font-semibold">Siga-nos nas redes</p>
-            <div className="flex items-center gap-3 md:gap-4">
+    <footer className="border-t border-primary/10 bg-gradient-to-b from-background via-primary/5 to-background text-muted-foreground">
+      <div className="container mx-auto px-4 py-8 md:py-14 space-y-8 md:space-y-10">
+        <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr_0.9fr] md:gap-10">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={logoFeira}
+                alt="Logo 8ª Feira do Empreendedor"
+                className="h-12 w-auto object-contain hidden sm:block"
+                draggable={false}
+              />
+              <h3 className="text-2xl font-bold text-primary">8ª Feira do Empreendedor</h3>
+            </div>
+            <p className="text-sm text-muted-foreground/90">
+              Um encontro para acelerar negócios, fortalecer conexões e inspirar o Sertão do Pajeú.
+            </p>
+            <div className="space-y-2 text-sm text-muted-foreground/80">
+              <p className="flex items-center gap-2">
+                <MapPin size={18} className="text-primary" />
+                Praça Arruda Câmara • Afogados da Ingazeira - PE
+              </p>
+              <p className="flex items-center gap-2">
+                <CalendarDays size={18} className="text-primary" />
+                6, 7 e 8 de novembro de 2025
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-4">
               <a
                 href="https://wa.me/5587999999999"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-11 h-11 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-110 hover:shadow-glow"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-white/70 text-primary transition hover:-translate-y-1 hover:bg-white md:h-11 md:w-11"
                 aria-label="WhatsApp"
               >
                 <MessageCircle size={20} />
@@ -32,22 +49,73 @@ const Footer = () => {
                 href="https://instagram.com/feiradoempreendedor"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-11 h-11 md:w-12 md:h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-110 hover:shadow-glow"
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-white/70 text-primary transition hover:-translate-y-1 hover:bg-white md:h-11 md:w-11"
                 aria-label="Instagram"
               >
                 <Instagram size={20} />
               </a>
             </div>
           </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-primary/80">
+                Realização
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3 md:mt-4 md:gap-4">
+                {[
+                  { src: logoAfadm, alt: "Secretaria de Administração de Afogados da Ingazeira" },
+                  { src: logoSala, alt: "Sala do Empreendedor" },
+                  { src: logoUnicef, alt: "UNICEF" },
+                ].map((logo) => (
+                  <div
+                    key={logo.alt}
+                    className="flex h-14 w-24 items-center justify-center rounded-2xl border border-primary/10 bg-white/80 p-2 shadow-sm backdrop-blur-md md:h-16 md:w-28"
+                  >
+                    <img src={logo.src} alt={logo.alt} className="max-h-full w-full object-contain" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-primary/80">
+                Parceiros
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3 md:mt-4 md:gap-4">
+                {[{ src: logoCdl, alt: "CDL Afogados da Ingazeira" }, { src: logoSebrae, alt: "SEBRAE" }].map((logo) => (
+                  <div
+                    key={logo.alt}
+                    className="flex h-14 w-24 items-center justify-center rounded-2xl border border-primary/10 bg-white/80 p-2 shadow-sm backdrop-blur-md md:h-16 md:w-28"
+                  >
+                    <img src={logo.src} alt={logo.alt} className="max-h-full w-full object-contain" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <h4 className="text-lg font-semibold text-primary">Dúvidas e suporte</h4>
+            <div className="space-y-3 text-sm">
+              <p>
+                Atendimento da coordenação da feira disponível de segunda a sexta-feira, das 8h às 17h.
+              </p>
+              <p className="font-medium text-primary">(87) 3838-1557</p>
+              <p>
+                E-mail: <a href="mailto:feira@afogados.pe.gov.br" className="text-primary underline">feira@afogados.pe.gov.br</a>
+              </p>
+              <Link to="/manual" className="inline-flex items-center gap-2 text-primary underline">
+                Manual do Expositor
+              </Link>
+            </div>
+          </div>
         </div>
 
-        <div className="pt-4 md:pt-6 border-t border-primary-foreground/20 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4 text-xs md:text-sm text-primary-foreground/70">
-          <p>© 2025 Feira do Empreendedor - Todos os direitos reservados</p>
-          <Link
-            to="/admin"
-            className="text-primary-foreground/40 hover:text-primary-foreground/80 transition-colors text-xs underline"
-          >
-            Acesso Admin
+  <div className="flex flex-col items-center justify-between gap-3 border-t border-primary/10 pt-5 text-xs text-muted-foreground/80 md:flex-row md:pt-6 md:text-sm">
+          <p>© 2025 Feira do Empreendedor. Todos os direitos reservados.</p>
+          <Link to="/admin/dashboard" className="text-primary/70 underline transition hover:text-primary">
+            Painel Administrativo
           </Link>
         </div>
       </div>

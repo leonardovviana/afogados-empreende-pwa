@@ -1,73 +1,85 @@
-# Welcome to your Lovable project
+# Afogados Empreende · PWA
 
-## Project info
+Aplicativo web progressivo oficial da 8ª Feira do Empreendedor de Afogados da Ingazeira. O projeto oferece informações atualizadas sobre o evento, como programação, mapa interativo, cadastro de expositores e conteúdos de apoio para visitantes e organizadores.
 
-**URL**: https://lovable.dev/projects/386e14d1-80e0-4ff2-af0f-fee3a44d9b9a
+## ✨ Principais recursos
 
-## How can I edit this code?
+- **Home dinâmica** com contagem regressiva, destaques e atalhos rápidos.
+- **Cadastro online** de expositores e participantes, integrado ao Firebase (Firestore, Auth e Storage).
+- **Mapa e manual interativos** para facilitar a experiência durante a feira.
+- **Design responsivo** com componentes reutilizáveis baseados em shadcn/ui.
+- **Experiência PWA** (instalação no dispositivo, splash screen e uso offline básico).
 
-There are several ways of editing your application.
+## 🧱 Stack tecnológica
 
-**Use Lovable**
+- [Vite](https://vitejs.dev/) + [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS](https://tailwindcss.com/) e [shadcn/ui](https://ui.shadcn.com/)
+- [Firebase](https://firebase.google.com/) (Firestore, Auth, Storage) para dados, autenticação e arquivos
+- [React Router](https://reactrouter.com/) para navegação SPA
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/386e14d1-80e0-4ff2-af0f-fee3a44d9b9a) and start prompting.
+## 🚀 Como rodar localmente
 
-Changes made via Lovable will be committed automatically to this repo.
+> Pré-requisitos: [Node.js 18+](https://nodejs.org/en/download) e [npm](https://www.npmjs.com/)
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```cmd
+git clone https://github.com/leonardovviana/afogados-empreende-pwa.git
+cd afogados-empreende-pwa
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+O servidor será carregado em `http://localhost:5173/` por padrão.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Variáveis de ambiente
 
-**Use GitHub Codespaces**
+Crie um arquivo `.env` na raiz com as credenciais do seu projeto Firebase:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+# Opcional, apenas se o projeto usar Analytics
+VITE_FIREBASE_MEASUREMENT_ID=...
+```
 
-## What technologies are used for this project?
+Esses valores podem ser encontrados no painel **Configurações do projeto › Seus apps** no console do Firebase. Após configurar, reinicie o servidor de desenvolvimento.
 
-This project is built with:
+### Scripts úteis
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Comando          | Descrição                                         |
+| ---------------- | ------------------------------------------------- |
+| `npm run dev`    | Ambiente de desenvolvimento com hot reload        |
+| `npm run build`  | Gera a versão otimizada para produção             |
+| `npm run preview`| Servidor local para inspecionar o build gerado    |
+| `npm run lint`   | Executa verificação de estilo e padrões de código |
 
-## How can I deploy this project?
+## 📁 Estrutura destacada
 
-Simply open [Lovable](https://lovable.dev/projects/386e14d1-80e0-4ff2-af0f-fee3a44d9b9a) and click on Share -> Publish.
+```
+src/
+├─ assets/          # Imagens e ícones
+├─ components/      # Componentes compartilhados (UI, navegação, etc.)
+├─ hooks/           # Hooks reutilizáveis
+├─ integrations/    # Clientes externos (ex.: Firebase)
+├─ pages/           # Páginas da aplicação (rotas)
+└─ styles           # Estilos globais e utilitários
+```
 
-## Can I connect a custom domain to my Lovable project?
+## 📱 Publicação e PWA
 
-Yes, you can!
+A aplicação já acompanha manifesto (`public/manifest.json`) e ícones base para instalação em dispositivos móveis. Após ajustes de conteúdo, rode `npm run build` para gerar a versão otimizada de produção antes de publicar.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🤝 Contribuindo
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+1. Crie uma branch a partir da `main` (`git checkout -b feature/minha-feature`).
+2. Faça commits descritivos.
+3. Abra um Pull Request explicando o contexto e os passos de teste.
+
+Sinta-se à vontade para sugerir melhorias ou relatar bugs abrindo issues no repositório.
+
+---
+
+Feito para fortalecer o ecossistema empreendedor de Afogados da Ingazeira. 💚

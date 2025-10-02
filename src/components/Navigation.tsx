@@ -1,6 +1,10 @@
+import logoAfadm from "@/assets/logoafadm2.png";
+import logoFeira from "@/assets/logofeira.png";
+import logoSala from "@/assets/logosala.png";
+import logoUnicef from "@/assets/logounicef.png";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,38 +19,73 @@ const Navigation = () => {
     { name: "Manual", path: "/manual" },
   ];
 
+  const realizationLogos = [
+    {
+      src: logoAfadm,
+      alt: "Secretaria de Administração de Afogados da Ingazeira",
+    },
+    {
+      src: logoSala,
+      alt: "Sala do Empreendedor",
+    },
+    {
+      src: logoUnicef,
+      alt: "UNICEF",
+    },
+  ];
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass-effect border-b border-white/10 shadow-lg">
+    <>
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-primary/10 shadow-elegant bg-white/85 text-primary backdrop-blur-xl supports-[backdrop-filter]:bg-white/70 transition-colors">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo Section with institutional spaces */}
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Espaço para logo da Prefeitura */}
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center hover-lift backdrop-blur-sm shadow-sm">
-              <span className="text-[10px] md:text-xs text-white/70 text-center font-medium">Prefeitura</span>
-            </div>
-            
-            {/* Espaço para logo da Secretaria */}
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center hover-lift backdrop-blur-sm shadow-sm">
-              <span className="text-[10px] md:text-xs text-white/70 text-center font-medium">Secretaria</span>
-            </div>
-
-            <Link to="/" className="text-base md:text-lg font-semibold text-white hover:scale-105 transition-transform">
+          {/* Logo Section with institutional logos */}
+          <div className="flex flex-1 items-center justify-center md:justify-start gap-1.5 md:gap-3">
+            <Link
+              to="/"
+              className="flex items-center gap-3 text-base md:text-lg font-semibold text-primary hover:scale-105 transition-transform"
+            >
+              <img
+                src={logoFeira}
+                alt="Logo 8ª Feira do Empreendedor"
+                className="h-9 sm:h-10 w-auto object-contain"
+                draggable={false}
+              />
               <span className="hidden lg:inline">8ª Feira do Empreendedor</span>
-              <span className="lg:hidden">Feira 2025</span>
             </Link>
+
+            <div className="hidden sm:flex items-center gap-1.5 md:gap-2 pl-2 md:pl-2.5 border-l border-primary/15">
+              <span className="text-[10px] md:text-xs font-semibold uppercase tracking-[0.28em] text-primary/60">
+                Realização
+              </span>
+              <div className="flex items-center gap-1.5 md:gap-2">
+                {realizationLogos.map((logo) => (
+                  <div
+                    key={logo.alt}
+                    className="flex h-10 md:h-12 items-center justify-center rounded-xl border border-primary/10 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-md"
+                  >
+                    <img
+                      src={logo.src}
+                      alt={logo.alt}
+                      className="h-6 md:h-8 w-auto object-contain"
+                      draggable={false}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-1 ml-3 lg:ml-6">
             {links.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
                 className={`px-3 lg:px-4 py-2 text-sm font-medium rounded-xl transition-all ${
                   location.pathname === link.path
-                    ? "bg-white/25 text-white shadow-sm backdrop-blur-sm"
-                    : "text-white/90 hover:bg-white/15 hover:text-white"
+                    ? "bg-primary/10 text-primary shadow-sm"
+                    : "text-primary/80 hover:bg-primary/5 hover:text-primary"
                 }`}
               >
                 {link.name}
@@ -57,7 +96,7 @@ const Navigation = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-white hover:bg-white/15 p-2 rounded-xl transition-colors backdrop-blur-sm"
+            className="md:hidden text-primary hover:bg-primary/10 p-2 rounded-xl transition-colors backdrop-blur-sm"
           >
             {isOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
@@ -74,8 +113,8 @@ const Navigation = () => {
                   onClick={() => setIsOpen(false)}
                   className={`block px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
                     location.pathname === link.path
-                      ? "bg-white/25 text-white backdrop-blur-sm"
-                      : "text-white/90 hover:bg-white/15 hover:text-white"
+                      ? "bg-primary/10 text-primary"
+                      : "text-primary/80 hover:bg-primary/5 hover:text-primary"
                   }`}
                 >
                   {link.name}
@@ -86,6 +125,26 @@ const Navigation = () => {
         )}
       </div>
     </nav>
+  <div className="sm:hidden mt-20 mb-0">
+      <div className="container mx-auto px-4">
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-primary/10 bg-white/80 p-3 shadow-sm backdrop-blur">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-primary/60">
+            Realização
+          </span>
+          <div className="flex items-center gap-3">
+            {realizationLogos.map((logo) => (
+              <div
+                key={logo.alt}
+                className="flex h-12 w-20 items-center justify-center rounded-xl border border-primary/10 bg-white/95 p-2 shadow-sm"
+              >
+                <img src={logo.src} alt={logo.alt} className="max-h-full w-full object-contain" draggable={false} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+    </>
   );
 };
 

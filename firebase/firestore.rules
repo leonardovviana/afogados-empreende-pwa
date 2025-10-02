@@ -1,0 +1,17 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cadastros de expositores
+    match /exhibitorRegistrations/{registrationId} {
+      allow create: if true;            // Público envia formulário
+      allow read: if true;              // Consulta pública do status
+      allow update, delete: if request.auth != null; // Apenas admins autenticados
+    }
+
+    // Perfis de administradores
+    match /adminProfiles/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
