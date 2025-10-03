@@ -24,7 +24,7 @@ const LoadingScreen = () => (
   <div className="min-h-screen flex items-center justify-center bg-gradient-hero">
     <div className="text-center space-y-3">
       <div className="h-10 w-10 mx-auto rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
-      <p className="text-sm text-muted-foreground">Carregando...</p>
+      <p className="text-sm text-muted-foreground">Carregando..</p>
     </div>
   </div>
 );
