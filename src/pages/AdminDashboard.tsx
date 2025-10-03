@@ -1,3 +1,4 @@
+import logoShield from "@/assets/logoescudo.png";
 import icon from "@/assets/icon.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -902,21 +903,25 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gradient-sand">
       <header className="bg-primary text-primary-foreground shadow-elegant">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={icon} alt="Logo" className="h-10 w-10 rounded-xl" />
-              <div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <img
+                src={logoShield}
+                alt="Feira do Empreendedor"
+                className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-white/90 p-1 object-contain shadow-md"
+              />
+              <div className="text-center sm:text-left">
                 <h1 className="text-xl font-bold font-['Poppins']">Painel Administrativo</h1>
                 <p className="text-sm text-primary-foreground/80">8ª Feira do Empreendedor</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3 w-full sm:w-auto">
               <Button
                 onClick={handleManualRefresh}
                 variant="outline"
                 size="sm"
                 disabled={loading}
-                className="flex items-center gap-2 border-primary/30 text-primary"
+                className="flex items-center justify-center gap-2 border-primary/30 text-primary w-full sm:w-auto"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw size={16} />}
                 Atualizar
@@ -925,7 +930,7 @@ const AdminDashboard = () => {
                 onClick={handleLogout}
                 variant="secondary"
                 size="sm"
-                className="flex items-center gap-2"
+                className="flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 <LogOut size={16} />
                 Sair
