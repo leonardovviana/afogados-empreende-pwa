@@ -155,6 +155,20 @@ const Consulta = () => {
   const [deletingProof, setDeletingProof] = useState(false);
   const proofInputRef = useRef<HTMLInputElement | null>(null);
 
+  const openSignedUrl = (url: string, { download }: { download?: boolean } = {}) => {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.rel = "noopener noreferrer";
+    anchor.target = "_blank";
+    if (download) {
+      anchor.download = "";
+    }
+
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+  };
+
   const statusConfig = useMemo(
     () => ({
       "Pendente": {
@@ -278,7 +292,7 @@ const Consulta = () => {
         throw error ?? new Error("Não foi possível gerar o link do boleto.");
       }
 
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      openSignedUrl(data.signedUrl, { download: true });
     } catch (error) {
       console.error("Erro ao gerar link do boleto:", error);
       toast.error("Não foi possível abrir o boleto. Tente novamente.");
@@ -386,7 +400,7 @@ const Consulta = () => {
         throw error ?? new Error("Não foi possível gerar o link do comprovante.");
       }
 
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  openSignedUrl(data.signedUrl);
     } catch (error) {
       console.error("Erro ao abrir comprovante:", error);
       if (isStoragePermissionError(error)) {

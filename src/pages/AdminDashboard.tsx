@@ -1,5 +1,4 @@
 import logoShield from "@/assets/logoescudo.png";
-import icon from "@/assets/icon.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -837,7 +836,7 @@ const AdminDashboard = () => {
   if (configError) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-sand p-6 text-center">
-        <img src={icon} alt="Logo" className="h-16 w-16 mb-4 rounded-xl" />
+  <img src={logoShield} alt="Feira do Empreendedor" className="h-16 w-16 mb-4 rounded-xl" />
         <h1 className="text-2xl font-semibold text-card-foreground mb-2">Painel indisponível</h1>
         <p className="text-sm text-muted-foreground max-w-2xl mb-6">{configError}</p>
         <div className="w-full max-w-2xl bg-card text-left rounded-2xl shadow-elegant border border-border p-6">

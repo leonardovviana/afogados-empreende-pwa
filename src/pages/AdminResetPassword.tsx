@@ -1,4 +1,4 @@
-import icon from "@/assets/icon.png";
+import logoShield from "@/assets/logoescudo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,7 +105,7 @@ const AdminResetPassword = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
         <div className="w-full max-w-md bg-card rounded-2xl shadow-elegant p-8 text-center space-y-4">
-          <img src={icon} alt="Logo" className="w-16 h-16 mx-auto rounded-2xl" />
+          <img src={logoShield} alt="Feira do Empreendedor" className="w-16 h-16 mx-auto rounded-2xl" />
           <h1 className="text-xl font-semibold text-card-foreground">Redefinir senha</h1>
           <p className="text-sm text-muted-foreground">
             {sessionError ?? "O link de redefinição é inválido ou já foi utilizado. Solicite um novo link na tela de login."}
@@ -120,7 +120,7 @@ const AdminResetPassword = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-elegant p-8 animate-scale-in">
         <div className="text-center mb-8">
-          <img src={icon} alt="Logo" className="w-16 h-16 mx-auto mb-4 rounded-2xl" />
+          <img src={logoShield} alt="Feira do Empreendedor" className="w-16 h-16 mx-auto mb-4 rounded-2xl" />
           <h1 className="text-2xl font-bold text-card-foreground font-['Poppins']">
             Definir nova senha
           </h1>
