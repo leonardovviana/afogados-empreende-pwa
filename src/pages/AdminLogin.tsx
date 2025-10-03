@@ -2,19 +2,13 @@ import icon from "@/assets/icon.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { firebaseAuth, firebaseFirestore } from "@/integrations/firebase/client";
+import { supabase } from "@/integrations/supabase/client";
+import type { AdminProfileRow } from "@/integrations/supabase/types";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { Loader2, Lock, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
@@ -35,9 +29,14 @@ const AdminLogin = () => {
 
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(firebaseAuth, trimmedEmail, {
-        url: `${window.location.origin}/admin/reset`,
+      const redirectTo = `${window.location.origin}/admin/reset`;
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo,
       });
+
+      if (error) {
+        throw error;
+      }
 
       toast.success("Enviamos um link de redefinição para o e-mail informado.");
     } catch (error) {
@@ -48,20 +47,99 @@ const AdminLogin = () => {
     }
   };
 
+  const mapProfileErrorMessage = (error: unknown): string => {
+    const defaultMessage = "Não foi possível validar seu perfil de administrador.";
+
+    if (typeof error === "string") return error;
+    if (error instanceof Error) return error.message;
+    return defaultMessage;
+  };
+
+  const ensureProfileApproval = async (userId: string): Promise<AdminProfileRow | null> => {
+    const { data, error } = await supabase
+      .from("admin_profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error && (error as PostgrestError).code !== "PGRST116") {
+      throw error;
+    }
+
+    return data ?? null;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setInfoMessage(null);
     setLoading(true);
 
     try {
-      if (mode === "login") {
-        const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-        const { user } = credential;
+      const sanitizedEmail = email.trim();
 
-        if (!user.emailVerified) {
-          await sendEmailVerification(user);
-          await signOut(firebaseAuth);
-          toast.warning("Confirme seu e-mail antes de acessar o painel. Enviamos um novo link.");
+      if (!sanitizedEmail) {
+        toast.error("Informe um e-mail válido.");
+        setLoading(false);
+        return;
+      }
+
+      if (mode === "login") {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: sanitizedEmail,
+          password,
+        });
+
+        if (error) {
+          const message = error.message?.toLowerCase?.() ?? "";
+
+          if (message.includes("email") && message.includes("confirm")) {
+            toast.error("Confirme seu e-mail antes de acessar o painel.");
+            setInfoMessage(
+              "Seu e-mail ainda não foi confirmado. Reenvie o link pela opção de redefinição ou procure a coordenação."
+            );
+            await supabase.auth.signOut();
+            return;
+          }
+
+          throw error;
+        }
+
+        const user = data.user;
+
+        if (!user) {
+          throw new Error("Não foi possível identificar o usuário autenticado.");
+        }
+
+        if (!user.email_confirmed_at) {
+          toast.error("Confirme seu e-mail antes de acessar o painel.");
+          setInfoMessage(
+            "Confirme seu e-mail pelo link enviado antes de tentar entrar no painel administrativo."
+          );
+          await supabase.auth.signOut();
+          return;
+        }
+
+        const profile = await ensureProfileApproval(user.id);
+
+        if (!profile) {
+          toast.error(
+            "Seu perfil ainda não foi configurado como administrador. Solicite acesso à coordenação."
+          );
+          setInfoMessage(
+            "Seu perfil administrativo ainda não foi configurado. Entre em contato com a coordenação para vincular seu usuário."
+          );
+          await supabase.auth.signOut();
+          return;
+        }
+
+        if (!profile.is_approved) {
+          toast.error(
+            "Seu acesso ainda não foi aprovado pela equipe. Aguarde a confirmação para entrar."
+          );
+          setInfoMessage(
+            "Seu acesso ainda está em análise. Assim que for aprovado, você poderá fazer login normalmente."
+          );
+          await supabase.auth.signOut();
           return;
         }
 
@@ -74,19 +152,43 @@ const AdminLogin = () => {
           return;
         }
 
-        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-        const { user } = credential;
-
-        await setDoc(doc(firebaseFirestore, "adminProfiles", user.uid), {
-          email: user.email,
-          full_name: user.email ?? "Administrador",
-          is_approved: true,
-          created_at: serverTimestamp(),
+        const redirectTo = `${window.location.origin}/admin/confirm`;
+        const { data, error } = await supabase.auth.signUp({
+          email: sanitizedEmail,
+          password,
+          options: {
+            emailRedirectTo: redirectTo,
+            data: {
+              role: "admin",
+            },
+          },
         });
 
-        await sendEmailVerification(user);
+        if (error) {
+          throw error;
+        }
 
-        await signOut(firebaseAuth);
+        const user = data.user;
+
+        if (user) {
+          const { error: profileError } = await supabase
+            .from("admin_profiles")
+            .upsert(
+              {
+                user_id: user.id,
+                email: user.email,
+                full_name: user.email ?? "Administrador",
+                is_approved: false,
+              },
+              { onConflict: "user_id" }
+            );
+
+          if (profileError) {
+            throw profileError;
+          }
+        }
+
+        await supabase.auth.signOut();
 
         setInfoMessage(
           "Conta criada! Verifique seu e-mail para confirmar o cadastro e depois faça login."
@@ -103,6 +205,10 @@ const AdminLogin = () => {
           ? "Credenciais inválidas. Verifique e tente novamente."
           : "Não foi possível criar a conta. Verifique os dados e tente novamente."
       );
+      const message = mapProfileErrorMessage(error);
+      if (message) {
+        console.error("Detalhes do erro de perfil:", message);
+      }
     } finally {
       setLoading(false);
     }

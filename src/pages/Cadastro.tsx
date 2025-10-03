@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { firebaseFirestore } from "@/integrations/firebase/client";
-import { addDoc, collection, getDocs, limit, query, where } from "firebase/firestore";
+import { supabase } from "@/integrations/supabase/client";
+import type { ExhibitorRegistrationInsert } from "@/integrations/supabase/types";
 import {
     FORMATTED_PAYMENT_METHODS,
     STAND_OPTIONS,
@@ -15,6 +15,7 @@ import {
     type FormattedPaymentMethod,
 } from "@/lib/pricing";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useForm, type FieldPath } from "react-hook-form";
@@ -105,6 +106,78 @@ const getDocumentValidationError = (value: string): string | null => {
   }
 
   return "Informe um CPF com 11 dígitos ou um CNPJ com 14 dígitos.";
+};
+
+const buildDocumentCandidates = (rawValue: string, normalized: string): string[] => {
+  const values = new Set<string>();
+
+  const trimmed = rawValue.trim();
+  if (trimmed) {
+    values.add(trimmed);
+  }
+
+  if (normalized) {
+    values.add(normalized);
+
+    if (normalized.length === 11) {
+      values.add(formatCpf(normalized));
+    }
+
+    if (normalized.length === 14) {
+      values.add(formatCnpj(normalized));
+    }
+  }
+
+  return Array.from(values).filter(Boolean);
+};
+
+const isPostgrestError = (error: unknown): error is PostgrestError =>
+  typeof error === "object" && error !== null && "code" in error && "message" in error;
+
+const isMissingColumnError = (error: unknown): boolean =>
+  isPostgrestError(error) && (error.code === "42703" || /column .* does not exist/i.test(error.message));
+
+const hasExistingRegistration = async (
+  normalized: string,
+  candidates: string[]
+): Promise<boolean> => {
+  if (!candidates.length) {
+    return false;
+  }
+
+  const { data: directMatches, error: directError } = await supabase
+    .from("exhibitor_registrations")
+    .select("id, cpf_cnpj")
+    .in("cpf_cnpj", candidates)
+    .limit(1);
+
+  if (directError) {
+    throw directError;
+  }
+
+  if (directMatches && directMatches.length > 0) {
+    return true;
+  }
+
+  if (!normalized) {
+    return false;
+  }
+
+  const { data: normalizedMatch, error: normalizedError } = await supabase
+    .from("exhibitor_registrations")
+    .select("id")
+    .eq("cpf_cnpj_normalized", normalized)
+    .maybeSingle();
+
+  if (normalizedError) {
+    if (isMissingColumnError(normalizedError)) {
+      return false;
+    }
+
+    throw normalizedError;
+  }
+
+  return Boolean(normalizedMatch);
 };
 
 const formSchema = z.object({
@@ -245,14 +318,10 @@ const Cadastro = () => {
       }
 
       const normalizedDocument = sanitizeDocument(data.cpf_cnpj);
+      const documentCandidates = buildDocumentCandidates(data.cpf_cnpj, normalizedDocument);
 
-      const registrationsRef = collection(firebaseFirestore, "exhibitorRegistrations");
-
-      const duplicateSnapshot = await getDocs(
-        query(registrationsRef, where("cpf_cnpj_normalized", "==", normalizedDocument), limit(1))
-      );
-
-      if (!duplicateSnapshot.empty) {
+      const duplicate = await hasExistingRegistration(normalizedDocument, documentCandidates);
+      if (duplicate) {
         toast.error("Este CPF/CNPJ já está cadastrado.");
         setLoading(false);
         return;
@@ -268,11 +337,9 @@ const Cadastro = () => {
           ? data.other_business_segment
           : data.business_segment;
 
-      const nowIso = new Date().toISOString();
-
-      await addDoc(registrationsRef, {
-        cpf_cnpj: data.cpf_cnpj.trim(),
-        cpf_cnpj_normalized: normalizedDocument,
+      const insertPayload: ExhibitorRegistrationInsert = {
+        cpf_cnpj: normalizedDocument || data.cpf_cnpj.trim(),
+        cpf_cnpj_normalized: normalizedDocument || null,
         company_name: data.company_name.trim(),
         responsible_name: data.responsible_name.trim(),
         phone: data.phone.trim(),
@@ -280,23 +347,62 @@ const Cadastro = () => {
         business_segment: businessSegment,
         stands_quantity: Number.parseInt(data.stands_quantity, 10),
         payment_method: data.payment_method,
-        status: "Pendente",
+        status: "Pendente" as const,
         total_amount: computedTotal,
         boleto_path: null,
         boleto_uploaded_at: null,
         payment_proof_path: null,
         payment_proof_uploaded_at: null,
-        created_at: nowIso,
-        updated_at: nowIso,
-      });
+      };
+
+      let usedFallbackInsert = false;
+
+      const { error: insertError } = await supabase
+        .from("exhibitor_registrations")
+        .insert([insertPayload]);
+
+      if (insertError) {
+        if (isMissingColumnError(insertError)) {
+          console.warn(
+            "Coluna cpf_cnpj_normalized ausente no banco. Tentando salvar sem o campo. Aplique a nova migration para restaurar a deduplicação.",
+            insertError
+          );
+
+          const { cpf_cnpj_normalized: _ignored, ...fallbackPayload } = insertPayload;
+
+          const { error: retryError } = await supabase
+            .from("exhibitor_registrations")
+            .insert([fallbackPayload as ExhibitorRegistrationInsert]);
+
+          if (retryError) {
+            throw retryError;
+          }
+
+          usedFallbackInsert = true;
+        } else {
+          throw insertError;
+        }
+      }
 
       toast.success("Cadastro realizado com sucesso!", {
         description: "Atualize a página se precisar enviar outro cadastro.",
       });
+
+      if (usedFallbackInsert) {
+        toast.warning("Configure o banco para evitar cadastros duplicados", {
+          description: "Execute a migration 20251002153000_add_cpf_cnpj_normalized.sql no Supabase para habilitar a deduplicação automática.",
+        });
+      }
+
       setSubmitted(true);
     } catch (error) {
       console.error("Erro ao cadastrar:", error);
-      toast.error("Erro ao realizar cadastro. Tente novamente.");
+      if (isPostgrestError(error) && error.code === "23505") {
+        toast.error("Este CPF/CNPJ já está cadastrado.");
+      } else {
+        const description = isPostgrestError(error) ? error.message : undefined;
+        toast.error("Erro ao realizar cadastro. Tente novamente.", description ? { description } : undefined);
+      }
     } finally {
       setLoading(false);
     }

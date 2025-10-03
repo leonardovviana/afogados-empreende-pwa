@@ -3,32 +3,21 @@ import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { firebaseFirestore, firebaseStorage } from "@/integrations/firebase/client";
+import { supabase } from "@/integrations/supabase/client";
+import type { ExhibitorRegistrationRow } from "@/integrations/supabase/types";
 import { buildPaymentProofFilePath } from "@/lib/storage";
+import type { PostgrestError } from "@supabase/supabase-js";
 import {
-  BadgeCheck,
-  CalendarDays,
-  Clock3,
-  Download,
-  FileWarning,
-  Loader2,
-  Search,
-  UploadCloud,
+    BadgeCheck,
+    Clock3,
+    Download,
+    FileWarning,
+    Loader2,
+    Search,
+    UploadCloud
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  query,
-  updateDoc,
-  where,
-  type DocumentData,
-  type QueryDocumentSnapshot,
-} from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 type RegistrationStatus =
   | "Pendente"
@@ -55,6 +44,77 @@ const formatCnpj = (digits: string) =>
   digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
 
 const MAX_PROOF_FILE_SIZE = 6 * 1024 * 1024; // 6MB
+
+const buildDocumentCandidates = (rawValue: string, normalized: string): string[] => {
+  const values = new Set<string>();
+  const trimmed = rawValue.trim();
+
+  if (trimmed) {
+    values.add(trimmed);
+  }
+
+  if (normalized) {
+    values.add(normalized);
+
+    if (normalized.length === 11) {
+      values.add(formatCpf(normalized));
+    }
+
+    if (normalized.length === 14) {
+      values.add(formatCnpj(normalized));
+    }
+  }
+
+  return Array.from(values).filter(Boolean);
+};
+
+const isPostgrestError = (error: unknown): error is PostgrestError =>
+  typeof error === "object" && error !== null && "code" in error && "message" in error;
+
+const isMissingColumnError = (error: unknown): boolean =>
+  isPostgrestError(error) && (error.code === "42703" || /column .* does not exist/i.test(error.message));
+
+const normalizeStatusKey = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+
+  return value
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+};
+
+const STATUS_NORMALIZATION_MAP: Record<string, RegistrationStatus> = {
+  pendente: "Pendente",
+  "aguardando pagamento": "Aguardando pagamento",
+  "aguardando_pagamento": "Aguardando pagamento",
+  "aprovado aguardando pagamento": "Aguardando pagamento",
+  "participacao confirmada": "Participação confirmada",
+  "participação confirmada": "Participação confirmada",
+  "stand confirmado": "Participação confirmada",
+  aprovado: "Participação confirmada",
+  recusado: "Cancelado",
+  cancelado: "Cancelado",
+};
+
+const normalizeStatus = (status: string): RegistrationStatus => {
+  const key = normalizeStatusKey(status);
+  if (!key) return "Pendente";
+  return STATUS_NORMALIZATION_MAP[key] ?? "Pendente";
+};
+
+const mapRowToRegistration = (row: ExhibitorRegistrationRow): Registration => ({
+  id: row.id,
+  company_name: row.company_name,
+  status: normalizeStatus(row.status),
+  created_at: row.created_at ?? new Date().toISOString(),
+  boleto_path: row.boleto_path ?? null,
+  payment_proof_path: row.payment_proof_path ?? null,
+  payment_proof_uploaded_at: row.payment_proof_uploaded_at ?? null,
+});
 
 const Consulta = () => {
   const [cpfCnpj, setCpfCnpj] = useState("");
@@ -115,108 +175,58 @@ const Consulta = () => {
 
     try {
       const digits = sanitizeDocument(trimmedDoc);
-      const variations = new Set<string>([trimmedDoc]);
+      const candidates = buildDocumentCandidates(trimmedDoc, digits);
 
-      if (digits) {
-        variations.add(digits);
+      let matchedRow: ExhibitorRegistrationRow | null = null;
 
-        if (digits.length === 11) {
-          variations.add(formatCpf(digits));
+      if (candidates.length > 0) {
+        const { data: directMatches, error: directError } = await supabase
+          .from("exhibitor_registrations")
+          .select("*")
+          .in("cpf_cnpj", candidates)
+          .limit(1);
+
+        if (directError) throw directError;
+        matchedRow = directMatches?.[0] ?? null;
+      }
+
+      if (!matchedRow && digits) {
+        const { data: normalizedMatch, error: normalizedError } = await supabase
+          .from("exhibitor_registrations")
+          .select("*")
+          .eq("cpf_cnpj_normalized", digits)
+          .maybeSingle();
+
+        if (normalizedError) {
+          if (!isMissingColumnError(normalizedError)) {
+            throw normalizedError;
+          }
+        } else {
+          matchedRow = normalizedMatch;
+        }
+      }
+
+      if (!matchedRow && digits) {
+        const { data: fallbackMatches, error: fallbackError } = await supabase
+          .from("exhibitor_registrations")
+          .select("*")
+          .ilike("cpf_cnpj", `%${digits}%`)
+          .limit(1);
+
+        if (fallbackError && !isMissingColumnError(fallbackError)) {
+          throw fallbackError;
         }
 
-        if (digits.length === 14) {
-          variations.add(formatCnpj(digits));
-        }
+        matchedRow = fallbackMatches?.[0] ?? null;
       }
 
-      const documents = Array.from(variations).filter(Boolean);
-
-      if (documents.length === 0) {
-        toast.error("Informe um CPF ou CNPJ válido.");
-        setLastSearched(trimmedDoc);
-        setLoading(false);
-        return;
-      }
-
-      const registrationsRef = collection(firebaseFirestore, "exhibitorRegistrations");
-
-      const fetchByField = async (
-        field: "cpf_cnpj" | "cpf_cnpj_normalized",
-        value: string
-      ): Promise<QueryDocumentSnapshot<DocumentData> | null> => {
-        const snapshot = await getDocs(query(registrationsRef, where(field, "==", value), limit(1)));
-        return snapshot.docs[0] ?? null;
-      };
-
-      let matchedDoc: QueryDocumentSnapshot<DocumentData> | null = null;
-
-      for (const possible of documents) {
-        matchedDoc = await fetchByField("cpf_cnpj", possible);
-        if (matchedDoc) break;
-      }
-
-      if (!matchedDoc && digits) {
-        matchedDoc = await fetchByField("cpf_cnpj_normalized", digits);
-      }
-
-      if (!matchedDoc) {
-        const fallbackSnapshot = await getDocs(registrationsRef);
-        matchedDoc = fallbackSnapshot.docs.find((docSnap) => {
-          const data = docSnap.data() as Record<string, unknown>;
-          const storedDoc = String(data.cpf_cnpj ?? "").toLowerCase();
-          const normalizedStored = String(data.cpf_cnpj_normalized ?? "");
-
-          return documents.some((candidate) => {
-            const normalizedCandidate = candidate.toLowerCase();
-            return (
-              storedDoc.includes(normalizedCandidate) ||
-              normalizedStored.includes(candidate.replace(/[^0-9]/g, ""))
-            );
-          });
-        }) ?? null;
-      }
-
-      if (!matchedDoc) {
+      if (!matchedRow) {
         toast.error("Cadastro não encontrado");
         setLastSearched(trimmedDoc);
-        setLoading(false);
         return;
       }
 
-      const data = matchedDoc.data() as Record<string, unknown>;
-      const rawStatus = String(data.status ?? "");
-      const normalizedKey = rawStatus.trim().toLowerCase();
-      const normalizedStatus: RegistrationStatus = (() => {
-        switch (normalizedKey) {
-          case "pendente":
-            return "Pendente";
-          case "aguardando pagamento":
-          case "aguardando_pagamento":
-          case "aprovado - aguardando pagamento":
-            return "Aguardando pagamento";
-          case "participação confirmada":
-          case "participacao confirmada":
-          case "stand confirmado":
-          case "aprovado":
-            return "Participação confirmada";
-          case "recusado":
-          case "cancelado":
-            return "Cancelado";
-          default:
-            return "Pendente";
-        }
-      })();
-
-      setRegistration({
-        id: matchedDoc.id,
-        company_name: String(data.company_name ?? ""),
-        status: normalizedStatus,
-        created_at: String(data.created_at ?? new Date().toISOString()),
-        boleto_path: (data.boleto_path as string | null | undefined) ?? null,
-        payment_proof_path: (data.payment_proof_path as string | null | undefined) ?? null,
-        payment_proof_uploaded_at:
-          (data.payment_proof_uploaded_at as string | null | undefined) ?? null,
-      });
+      setRegistration(mapRowToRegistration(matchedRow));
       setLastSearched(trimmedDoc);
     } catch (error) {
       console.error("Erro ao buscar cadastro:", error);
@@ -231,10 +241,15 @@ const Consulta = () => {
 
     setDownloading(true);
     try {
-      const fileRef = ref(firebaseStorage, registration.boleto_path);
-      const downloadUrl = await getDownloadURL(fileRef);
+      const { data, error } = await supabase.storage
+        .from("boletos")
+        .createSignedUrl(registration.boleto_path, 60 * 60);
 
-      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+      if (error || !data?.signedUrl) {
+        throw error ?? new Error("Não foi possível gerar o link do boleto.");
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Erro ao gerar link do boleto:", error);
       toast.error("Não foi possível abrir o boleto. Tente novamente.");
@@ -269,20 +284,32 @@ const Consulta = () => {
     setUploadingProof(true);
 
     try {
-      const relativePath = buildPaymentProofFilePath(registration.id, file.name || "comprovante.jpg");
-      const storedPath = `payment-proofs/${relativePath}`;
-      const storageRef = ref(firebaseStorage, storedPath);
+      const storedPath = buildPaymentProofFilePath(registration.id, file.name || "comprovante.jpg");
 
-      await uploadBytes(storageRef, file, {
-        contentType: file.type,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from("payment-proofs")
+        .upload(storedPath, file, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
 
       const nowIso = new Date().toISOString();
-      await updateDoc(doc(firebaseFirestore, "exhibitorRegistrations", registration.id), {
-        payment_proof_path: storedPath,
-        payment_proof_uploaded_at: nowIso,
-        updated_at: nowIso,
-      });
+      const { error: updateError } = await supabase
+        .from("exhibitor_registrations")
+        .update({
+          payment_proof_path: storedPath,
+          payment_proof_uploaded_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", registration.id);
+
+      if (updateError) {
+        throw updateError;
+      }
 
       setRegistration((current) =>
         current
@@ -314,10 +341,15 @@ const Consulta = () => {
 
     setViewingProof(true);
     try {
-      const fileRef = ref(firebaseStorage, registration.payment_proof_path);
-      const downloadUrl = await getDownloadURL(fileRef);
+      const { data, error } = await supabase.storage
+        .from("payment-proofs")
+        .createSignedUrl(registration.payment_proof_path, 60 * 60);
 
-      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+      if (error || !data?.signedUrl) {
+        throw error ?? new Error("Não foi possível gerar o link do comprovante.");
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Erro ao abrir comprovante:", error);
       toast.error("Não foi possível abrir o comprovante. Tente novamente.");
@@ -460,7 +492,7 @@ const Consulta = () => {
                               </p>
                             )}
                           </div>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                             <input
                               ref={proofInputRef}
                               type="file"
@@ -469,20 +501,35 @@ const Consulta = () => {
                               aria-label="Selecionar comprovante de pagamento"
                               onChange={(event) => handleProofInputChange(event.target.files)}
                             />
-                            <Button
-                              type="button"
-                              onClick={triggerProofSelection}
-                              disabled={uploadingProof}
-                              className="inline-flex items-center gap-2 rounded-2xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light"
-                            >
-                              {uploadingProof ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <UploadCloud className="h-4 w-4" />
-                              )}
-                              {uploadingProof ? "Enviando..." : "Enviar comprovante"}
-                            </Button>
-                            {registration.payment_proof_path ? (
+                            {registration.status === "Aguardando pagamento" ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  onClick={triggerProofSelection}
+                                  disabled={uploadingProof}
+                                  className="inline-flex items-center gap-2 rounded-2xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light"
+                                >
+                                  {uploadingProof ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <UploadCloud className="h-4 w-4" />
+                                  )}
+                                  {uploadingProof ? "Enviando..." : "Enviar comprovante"}
+                                </Button>
+                                {registration.payment_proof_path ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={viewingProof}
+                                    onClick={handleViewPaymentProof}
+                                    className="inline-flex items-center gap-2 rounded-2xl border-primary/20 text-primary transition hover:bg-primary/5"
+                                  >
+                                    {viewingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                    {viewingProof ? "Abrindo..." : "Ver comprovante"}
+                                  </Button>
+                                ) : null}
+                              </>
+                            ) : registration.payment_proof_path ? (
                               <Button
                                 type="button"
                                 variant="outline"
@@ -493,11 +540,17 @@ const Consulta = () => {
                                 {viewingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                 {viewingProof ? "Abrindo..." : "Ver comprovante"}
                               </Button>
-                            ) : null}
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                Apenas cadastros com status <strong>Aguardando pagamento</strong> podem anexar comprovante.
+                              </span>
+                            )}
                           </div>
                         </div>
                         <p className="mt-3 text-[11px] text-muted-foreground">
-                          Formatos aceitos: JPG, PNG ou HEIC. Tamanho máximo de 6MB.
+                          {registration.status === "Aguardando pagamento"
+                            ? "Formatos aceitos: JPG, PNG ou HEIC. Tamanho máximo de 6MB."
+                            : "Envio de comprovante disponível somente enquanto o status estiver em Aguardando pagamento."}
                         </p>
                       </div>
                     </div>

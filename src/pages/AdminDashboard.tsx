@@ -1,40 +1,41 @@
 import icon from "@/assets/icon.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { firebaseAuth, firebaseFirestore, firebaseStorage } from "@/integrations/firebase/client";
+import {
+  clearSupabaseBrowserConfig,
+  getSupabaseConfigSnapshot,
+  isSupabaseConfigured,
+  persistSupabaseBrowserConfig,
+  refreshSupabaseClient,
+  supabase,
+} from "@/integrations/supabase/client";
+import type { AdminProfileRow, ExhibitorRegistrationRow } from "@/integrations/supabase/types";
 import { calculateTotalAmount, formatCurrencyBRL } from "@/lib/pricing";
 import { buildBoletoFilePath } from "@/lib/storage";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { Download, Loader2, LogOut, Search, UploadCloud } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  updateDoc,
-  where,
-  type DocumentData,
-  type QueryDocumentSnapshot,
-} from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+
+const MISSING_SUPABASE_MESSAGE =
+  "As credenciais do Supabase ainda não foram informadas. Preencha o URL e a chave anon nas variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY ou use o formulário abaixo para salvar as credenciais apenas neste navegador.";
 
 const statusOptions = [
   "Pendente",
@@ -102,9 +103,12 @@ const normalizePaymentMethod = (method: string): string => {
 const isRegistrationStatus = (value: string): value is RegistrationStatus =>
   (statusOptions as readonly string[]).includes(value);
 
+const sanitizeDigits = (value: string): string => value.replace(/[^0-9]/g, "");
+
 interface Registration {
   id: string;
   cpf_cnpj: string;
+  cpf_cnpj_normalized: string | null;
   company_name: string;
   responsible_name: string;
   phone: string;
@@ -118,57 +122,56 @@ interface Registration {
   payment_proof_path: string | null;
   payment_proof_uploaded_at: string | null;
   created_at: string;
+  updated_at: string | null;
   total_amount: number;
 }
 
-type FirestoreRegistration = {
-  cpf_cnpj: string;
-  cpf_cnpj_normalized?: string;
-  company_name: string;
-  responsible_name: string;
-  phone: string;
-  company_size: string;
-  business_segment: string;
-  stands_quantity: number;
-  payment_method: string;
-  status: string;
-  boleto_path?: string | null;
-  boleto_uploaded_at?: string | null;
-  payment_proof_path?: string | null;
-  payment_proof_uploaded_at?: string | null;
-  total_amount?: number;
-  created_at?: string;
-  updated_at?: string;
-};
-
-const parseRegistrationDoc = (
-  docSnap: QueryDocumentSnapshot<DocumentData>
-): Registration => {
-  const data = docSnap.data() as FirestoreRegistration;
-  const paymentMethod = normalizePaymentMethod(String(data.payment_method ?? ""));
-  const standsQuantity = Number(data.stands_quantity ?? 1) || 1;
+const mapRowToRegistration = (row: ExhibitorRegistrationRow): Registration => {
+  const paymentMethod = normalizePaymentMethod(String(row.payment_method ?? ""));
+  const standsQuantity = Number(row.stands_quantity ?? 1) || 1;
   const fallbackTotal = calculateTotalAmount(standsQuantity, paymentMethod);
-  const storedTotal = Number(data.total_amount ?? 0);
-  const createdAt = data.created_at ?? new Date().toISOString();
+  const storedTotal = Number(row.total_amount ?? 0);
+  const createdAt = row.created_at ?? new Date().toISOString();
 
   return {
-    id: docSnap.id,
-    cpf_cnpj: String(data.cpf_cnpj ?? ""),
-    company_name: String(data.company_name ?? ""),
-    responsible_name: String(data.responsible_name ?? ""),
-    phone: String(data.phone ?? ""),
-    company_size: String(data.company_size ?? ""),
-    business_segment: String(data.business_segment ?? ""),
+    id: row.id,
+    cpf_cnpj: String(row.cpf_cnpj ?? ""),
+    cpf_cnpj_normalized: row.cpf_cnpj_normalized ?? null,
+    company_name: String(row.company_name ?? ""),
+    responsible_name: String(row.responsible_name ?? ""),
+    phone: String(row.phone ?? ""),
+    company_size: String(row.company_size ?? ""),
+    business_segment: String(row.business_segment ?? ""),
     stands_quantity: standsQuantity,
     payment_method: paymentMethod,
-    status: normalizeStatus(String(data.status ?? "")),
-    boleto_path: data.boleto_path ?? null,
-    boleto_uploaded_at: data.boleto_uploaded_at ?? null,
-    payment_proof_path: data.payment_proof_path ?? null,
-    payment_proof_uploaded_at: data.payment_proof_uploaded_at ?? null,
+    status: normalizeStatus(String(row.status ?? "")),
+    boleto_path: row.boleto_path ?? null,
+    boleto_uploaded_at: row.boleto_uploaded_at ?? null,
+    payment_proof_path: row.payment_proof_path ?? null,
+    payment_proof_uploaded_at: row.payment_proof_uploaded_at ?? null,
     created_at: createdAt,
+    updated_at: row.updated_at ?? null,
     total_amount: storedTotal > 0 ? storedTotal : fallbackTotal,
   };
+};
+
+const isPostgrestError = (error: unknown): error is PostgrestError =>
+  typeof error === "object" && error !== null && "code" in error && "message" in error;
+
+const isNoRowsError = (error: unknown): boolean => isPostgrestError(error) && error.code === "PGRST116";
+
+const fetchAdminProfile = async (userId: string): Promise<AdminProfileRow | null> => {
+  const { data, error } = await supabase
+    .from("admin_profiles")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error && !isNoRowsError(error)) {
+    throw error;
+  }
+
+  return data ?? null;
 };
 
 const AdminDashboard = () => {
@@ -181,8 +184,25 @@ const AdminDashboard = () => {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [viewingProofId, setViewingProofId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
+  const initialConfigSnapshot = useMemo(() => getSupabaseConfigSnapshot(), [getSupabaseConfigSnapshot]);
+  const [configValues, setConfigValues] = useState({
+    url: initialConfigSnapshot.url,
+    anonKey: initialConfigSnapshot.anonKey,
+  });
+  const [configSource, setConfigSource] = useState(initialConfigSnapshot.source);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const navigate = useNavigate();
+
+  const handleMissingConfig = useCallback(() => {
+    const snapshot = getSupabaseConfigSnapshot();
+    setConfigValues({ url: snapshot.url, anonKey: snapshot.anonKey });
+    setConfigSource(snapshot.source);
+    setConfigError(MISSING_SUPABASE_MESSAGE);
+    setLoading(false);
+    setIsSavingConfig(false);
+  }, [getSupabaseConfigSnapshot]);
 
   const filteredRegistrations = useMemo(() => {
     if (!registrations.length) {
@@ -194,13 +214,16 @@ const AdminDashboard = () => {
     const hasSearch = normalizedSearch.length > 0;
 
     return registrations.filter((registration) => {
+      const registrationDigits = sanitizeDigits(registration.cpf_cnpj);
+      const normalizedDigits = registration.cpf_cnpj_normalized ?? "";
+
       const matchesSearch = !hasSearch
         ? true
         : registration.company_name.toLowerCase().includes(normalizedSearch) ||
           registration.responsible_name.toLowerCase().includes(normalizedSearch) ||
           registration.cpf_cnpj.toLowerCase().includes(normalizedSearch) ||
           (numericSearch
-            ? registration.cpf_cnpj.replace(/[^0-9]/g, "").includes(numericSearch)
+            ? registrationDigits.includes(numericSearch) || normalizedDigits.includes(numericSearch)
             : false);
 
       const matchesStatus =
@@ -251,39 +274,167 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = useCallback(async () => {
     try {
+      if (!isSupabaseConfigured()) {
+        handleMissingConfig();
+        return;
+      }
+
       setLoading(true);
 
-      const snapshot = await getDocs(collection(firebaseFirestore, "exhibitorRegistrations"));
-      const parsed = snapshot.docs.map(parseRegistrationDoc);
+      const { data, error } = await supabase
+        .from("exhibitor_registrations")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-      const sorted = parsed.sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return dateB - dateA;
-      });
+      if (error) {
+        throw error;
+      }
 
-      setRegistrations(sorted);
+      const mapped = (data ?? []).map(mapRowToRegistration);
+      setRegistrations(mapped);
     } catch (error) {
       console.error("Erro ao carregar dados do painel:", error);
       toast.error("Erro ao carregar dados do painel. Tente novamente.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleMissingConfig]);
+
+  const handleConfigInputChange = useCallback(
+    (field: "url" | "anonKey") => (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setConfigValues((current) => ({ ...current, [field]: value }));
+    },
+    []
+  );
+
+  const handleConfigSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setIsSavingConfig(true);
+
+      try {
+        persistSupabaseBrowserConfig({
+          url: configValues.url,
+          anonKey: configValues.anonKey,
+        });
+        refreshSupabaseClient();
+        const snapshot = getSupabaseConfigSnapshot();
+        setConfigValues({ url: snapshot.url, anonKey: snapshot.anonKey });
+        setConfigSource(snapshot.source);
+        toast.success("Credenciais salvas com sucesso! Recarregando o painel...");
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } catch (error) {
+        console.error("Falha ao salvar credenciais do Supabase:", error);
+        toast.error("Não foi possível salvar as credenciais. Verifique os valores informados.");
+      } finally {
+        setIsSavingConfig(false);
+      }
+    },
+    [
+      configValues.anonKey,
+      configValues.url,
+      getSupabaseConfigSnapshot,
+      persistSupabaseBrowserConfig,
+      refreshSupabaseClient,
+      toast,
+    ]
+  );
+
+  const handleClearConfig = useCallback(() => {
+    try {
+      clearSupabaseBrowserConfig();
+      refreshSupabaseClient();
+      const snapshot = getSupabaseConfigSnapshot();
+      setConfigValues({ url: snapshot.url, anonKey: snapshot.anonKey });
+      setConfigSource(snapshot.source);
+      toast.success("Credenciais salvas no navegador foram removidas.");
+    } catch (error) {
+      console.error("Falha ao limpar credenciais salvas:", error);
+      toast.error("Não foi possível limpar as credenciais salvas neste navegador.");
+    }
+  }, [clearSupabaseBrowserConfig, getSupabaseConfigSnapshot, refreshSupabaseClient, toast]);
+
+  const configSourceLabel = useMemo(() => {
+    switch (configSource) {
+      case "env":
+        return "Lidas do arquivo .env";
+      case "storage":
+        return "Salvas neste navegador";
+      case "mixed":
+        return "Completadas entre .env e navegador";
+      default:
+        return "Não encontradas";
+    }
+  }, [configSource]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-      if (!user) {
+    let mounted = true;
+
+    const verifySession = async () => {
+      if (!isSupabaseConfigured()) {
+        handleMissingConfig();
+        return;
+      }
+
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error("Erro ao verificar sessão do administrador:", error);
+      }
+
+      const session = data?.session ?? null;
+
+      if (!session) {
         toast.error("Faça login para acessar o painel.");
         navigate("/admin");
         return;
       }
 
-      setAuthChecked(true);
+      try {
+        const profile = await fetchAdminProfile(session.user.id);
+
+        if (!profile || !profile.is_approved) {
+          toast.error("Seu acesso administrativo não está ativo. Solicite aprovação.");
+          await supabase.auth.signOut();
+          navigate("/admin");
+          return;
+        }
+      } catch (profileError) {
+        console.error("Erro ao validar perfil administrativo:", profileError);
+        toast.error("Não foi possível validar seu acesso administrativo.");
+        await supabase.auth.signOut();
+        navigate("/admin");
+        return;
+      }
+
+      if (mounted) {
+        setAuthChecked(true);
+      }
+    };
+
+    void verifySession().catch((error) => {
+      console.error("Falha ao inicializar o painel administrativo:", error);
+      toast.error("Erro ao conectar com o Supabase. Verifique a configuração e tente novamente.");
+      handleMissingConfig();
     });
 
-    return () => unsubscribe();
-  }, [navigate]);
+    const authListener = isSupabaseConfigured()
+      ? supabase.auth.onAuthStateChange((_event, session) => {
+          if (!session) {
+            toast.error("Sessão encerrada. Faça login novamente.");
+            navigate("/admin");
+          }
+        })
+      : null;
+
+    return () => {
+      mounted = false;
+      authListener?.data.subscription.unsubscribe();
+    };
+  }, [handleMissingConfig, navigate]);
 
   useEffect(() => {
     if (authChecked) {
@@ -294,14 +445,25 @@ const AdminDashboard = () => {
   const updateStatus = async (id: string, status: RegistrationStatus) => {
     try {
       const nowIso = new Date().toISOString();
-      await updateDoc(doc(firebaseFirestore, "exhibitorRegistrations", id), {
-        status,
-        updated_at: nowIso,
-      });
+      const { error } = await supabase
+        .from("exhibitor_registrations")
+        .update(
+          {
+            status,
+            updated_at: nowIso,
+          } as never
+        )
+        .eq("id", id);
+
+      if (error) {
+        throw error;
+      }
 
       toast.success("Status atualizado com sucesso!");
       setRegistrations((current) =>
-        current.map((item) => (item.id === id ? { ...item, status } : item))
+        current.map((item) =>
+          item.id === id ? { ...item, status, updated_at: nowIso } : item
+        )
       );
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
@@ -317,9 +479,9 @@ const AdminDashboard = () => {
     const file = files?.[0];
     if (!file) return;
 
-  const fileNameLower = file.name.toLowerCase();
-  const hasPdfExtension = fileNameLower.endsWith(".pdf");
-  const isPdfMime = file.type === "application/pdf";
+    const fileNameLower = file.name.toLowerCase();
+    const hasPdfExtension = fileNameLower.endsWith(".pdf");
+    const isPdfMime = file.type === "application/pdf";
 
     if (!hasPdfExtension && !isPdfMime) {
       toast.error("Envie o boleto em formato PDF.");
@@ -330,25 +492,45 @@ const AdminDashboard = () => {
 
     try {
       const relativePath = buildBoletoFilePath(registrationId, file.name);
-      const storedPath = `boletos/${relativePath}`;
-      const storageRef = ref(firebaseStorage, storedPath);
+      const storedPath = relativePath;
       const nowIso = new Date().toISOString();
 
-      await uploadBytes(storageRef, file, {
-        contentType: "application/pdf",
-      });
+      const { error: uploadError } = await supabase.storage
+        .from("boletos")
+        .upload(storedPath, file, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
 
-      await updateDoc(doc(firebaseFirestore, "exhibitorRegistrations", registrationId), {
-        boleto_path: storedPath,
-        boleto_uploaded_at: nowIso,
-        updated_at: nowIso,
-      });
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { error: updateError } = await supabase
+        .from("exhibitor_registrations")
+        .update(
+          {
+            boleto_path: storedPath,
+            boleto_uploaded_at: nowIso,
+            updated_at: nowIso,
+          } as never
+        )
+        .eq("id", registrationId);
+
+      if (updateError) {
+        throw updateError;
+      }
 
       toast.success("Boleto anexado com sucesso!");
       setRegistrations((current) =>
         current.map((item) =>
           item.id === registrationId
-            ? { ...item, boleto_path: storedPath, boleto_uploaded_at: nowIso }
+            ? {
+                ...item,
+                boleto_path: storedPath,
+                boleto_uploaded_at: nowIso,
+                updated_at: nowIso,
+              }
             : item
         )
       );
@@ -371,10 +553,15 @@ const AdminDashboard = () => {
 
     setViewingId(registration.id);
     try {
-      const storageRef = ref(firebaseStorage, registration.boleto_path);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const { data, error } = await supabase.storage
+        .from("boletos")
+        .createSignedUrl(registration.boleto_path, 60 * 60);
 
-      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+      if (error || !data?.signedUrl) {
+        throw error ?? new Error("Não foi possível gerar o link do boleto.");
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Erro ao gerar link do boleto:", error);
       toast.error("Não foi possível abrir o boleto. Tente novamente.");
@@ -391,10 +578,15 @@ const AdminDashboard = () => {
 
     setViewingProofId(registration.id);
     try {
-      const storageRef = ref(firebaseStorage, registration.payment_proof_path);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const { data, error } = await supabase.storage
+        .from("payment-proofs")
+        .createSignedUrl(registration.payment_proof_path, 60 * 60);
 
-      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+      if (error || !data?.signedUrl) {
+        throw error ?? new Error("Não foi possível gerar o link do comprovante.");
+      }
+
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Erro ao gerar link do comprovante:", error);
       toast.error("Não foi possível abrir o comprovante. Tente novamente.");
@@ -404,7 +596,7 @@ const AdminDashboard = () => {
   };
 
   const handleLogout = async () => {
-    await signOut(firebaseAuth);
+    await supabase.auth.signOut();
     navigate("/admin");
   };
 
@@ -435,7 +627,7 @@ const AdminDashboard = () => {
       reg.business_segment,
       reg.stands_quantity,
       reg.payment_method,
-  formatCurrencyBRL(reg.total_amount),
+      formatCurrencyBRL(reg.total_amount),
       reg.status,
       reg.boleto_path ? "Sim" : "Não",
       reg.payment_proof_path ? "Sim" : "Não",
@@ -463,6 +655,73 @@ const AdminDashboard = () => {
     link.download = `cadastros_feira_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
   };
+
+  const isConfigFormValid = configValues.url.trim().length > 0 && configValues.anonKey.trim().length > 0;
+
+  if (configError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-sand p-6 text-center">
+        <img src={icon} alt="Logo" className="h-16 w-16 mb-4 rounded-xl" />
+        <h1 className="text-2xl font-semibold text-card-foreground mb-2">Painel indisponível</h1>
+        <p className="text-sm text-muted-foreground max-w-2xl mb-6">{configError}</p>
+        <div className="w-full max-w-2xl bg-card text-left rounded-2xl shadow-elegant border border-border p-6">
+          <form className="space-y-4" onSubmit={handleConfigSubmit}>
+            <div>
+              <Label htmlFor="supabase-url">Supabase URL</Label>
+              <Input
+                id="supabase-url"
+                placeholder="https://xxxx.supabase.co"
+                value={configValues.url}
+                onChange={handleConfigInputChange("url")}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <Label htmlFor="supabase-anon">Supabase anon key</Label>
+              <Input
+                id="supabase-anon"
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                value={configValues.anonKey}
+                onChange={handleConfigInputChange("anonKey")}
+                autoComplete="off"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Origem atual das credenciais: <span className="font-medium text-card-foreground">{configSourceLabel}</span>
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button type="submit" disabled={!isConfigFormValid || isSavingConfig} className="flex-1">
+                {isSavingConfig ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Salvar e recarregar
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClearConfig}
+                className="flex-1"
+                disabled={isSavingConfig}
+              >
+                Limpar credenciais salvas
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => navigate("/admin")}
+                className="flex-1"
+                disabled={isSavingConfig}
+              >
+                Voltar ao login
+              </Button>
+            </div>
+          </form>
+        </div>
+        <p className="text-xs text-muted-foreground max-w-2xl mt-4">
+          Dica: copie os valores em <strong>Configurações &gt; Projeto &gt; API</strong> no painel do Supabase. Você também pode definir as variáveis
+          diretamente no arquivo <code>.env</code> da aplicação para evitar configurar a cada navegador.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-sand">

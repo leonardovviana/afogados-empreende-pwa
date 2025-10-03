@@ -1,10 +1,10 @@
 import icon from "@/assets/icon.png";
 import { Button } from "@/components/ui/button";
-import { firebaseAuth } from "@/integrations/firebase/client";
+import { supabase } from "@/integrations/supabase/client";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { applyActionCode, checkActionCode, signOut } from "firebase/auth";
 
 const AdminConfirm = () => {
   const [searchParams] = useSearchParams();
@@ -12,9 +12,11 @@ const AdminConfirm = () => {
   const [status, setStatus] = useState<"processing" | "success" | "error">("processing");
   const [message, setMessage] = useState("Confirmando seu acesso...");
 
-  const combinedParams = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
-  const mode = combinedParams.get("mode");
-  const oobCode = combinedParams.get("oobCode");
+  const typeParam = searchParams.get("type") as EmailOtpType | null;
+  const code = searchParams.get("code");
+
+  const supportedTypes: EmailOtpType[] = ["signup", "invite"];
+  const isSupportedType = typeParam ? supportedTypes.includes(typeParam) : false;
 
   const getFriendlyErrorMessage = useCallback(
     (error: unknown) => {
@@ -45,16 +47,23 @@ const AdminConfirm = () => {
 
   useEffect(() => {
     const handleConfirmation = async () => {
-      if (mode !== "verifyEmail" || !oobCode) {
+      if (!typeParam || !code || !isSupportedType) {
         setStatus("error");
         setMessage("Link inválido ou expirado. Solicite um novo acesso.");
         return;
       }
 
       try {
-        await checkActionCode(firebaseAuth, oobCode);
-        await applyActionCode(firebaseAuth, oobCode);
-        await signOut(firebaseAuth);
+        const { error } = await supabase.auth.exchangeCodeForSession({
+          type: typeParam,
+          code,
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        await supabase.auth.signOut();
 
         setStatus("success");
         setMessage(
@@ -64,12 +73,12 @@ const AdminConfirm = () => {
         console.error("Erro ao confirmar e-mail:", error);
         setStatus("error");
         setMessage(getFriendlyErrorMessage(error));
-        await signOut(firebaseAuth);
+        await supabase.auth.signOut();
       }
     };
 
     void handleConfirmation();
-  }, [combinedParams, getFriendlyErrorMessage, mode, oobCode]);
+  }, [code, getFriendlyErrorMessage, isSupportedType, typeParam]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">

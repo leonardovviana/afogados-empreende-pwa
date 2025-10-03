@@ -5,7 +5,7 @@ Aplicativo web progressivo oficial da 8ª Feira do Empreendedor de Afogados da I
 ## ✨ Principais recursos
 
 - **Home dinâmica** com contagem regressiva, destaques e atalhos rápidos.
-- **Cadastro online** de expositores e participantes, integrado ao Firebase (Firestore, Auth e Storage).
+- **Cadastro online** de expositores e participantes, integrado ao Supabase (Postgres, Auth e Storage).
 - **Mapa e manual interativos** para facilitar a experiência durante a feira.
 - **Design responsivo** com componentes reutilizáveis baseados em shadcn/ui.
 - **Experiência PWA** (instalação no dispositivo, splash screen e uso offline básico).
@@ -14,7 +14,7 @@ Aplicativo web progressivo oficial da 8ª Feira do Empreendedor de Afogados da I
 
 - [Vite](https://vitejs.dev/) + [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/) e [shadcn/ui](https://ui.shadcn.com/)
-- [Firebase](https://firebase.google.com/) (Firestore, Auth, Storage) para dados, autenticação e arquivos
+- [Supabase](https://supabase.com/) (Postgres, Auth, Storage) para dados, autenticação e arquivos
 - [React Router](https://reactrouter.com/) para navegação SPA
 
 ## 🚀 Como rodar localmente
@@ -32,20 +32,14 @@ O servidor será carregado em `http://localhost:5173/` por padrão.
 
 ### Variáveis de ambiente
 
-Crie um arquivo `.env` na raiz com as credenciais do seu projeto Firebase:
+Crie um arquivo `.env` na raiz com as credenciais do seu projeto Supabase:
 
 ```env
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-# Opcional, apenas se o projeto usar Analytics
-VITE_FIREBASE_MEASUREMENT_ID=...
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
 ```
 
-Esses valores podem ser encontrados no painel **Configurações do projeto › Seus apps** no console do Firebase. Após configurar, reinicie o servidor de desenvolvimento.
+Esses valores podem ser encontrados no painel **Project Settings › API** do Supabase. Após configurar, reinicie o servidor de desenvolvimento.
 
 ### Scripts úteis
 
@@ -63,7 +57,7 @@ src/
 ├─ assets/          # Imagens e ícones
 ├─ components/      # Componentes compartilhados (UI, navegação, etc.)
 ├─ hooks/           # Hooks reutilizáveis
-├─ integrations/    # Clientes externos (ex.: Firebase)
+├─ integrations/    # Clientes externos (ex.: Supabase)
 ├─ pages/           # Páginas da aplicação (rotas)
 └─ styles           # Estilos globais e utilitários
 ```
