@@ -8,10 +8,13 @@ import logoUnicef from "@/assets/logounicef.png";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
+import { getMixedPhotoEntries } from "@/lib/photos";
 import {
   Award,
   Building2,
   CalendarCheck,
+  ChevronLeft,
+  ChevronRight,
   Handshake,
   HeartHandshake,
   Lightbulb,
@@ -19,7 +22,33 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+
+type GalleryImage = {
+  src: string;
+  caption?: string;
+  showCaption?: boolean;
+};
+
+const aboutPhotoEntries = getMixedPhotoEntries();
+
+const formatCaptionFromPath = (filePath: string): string => {
+  const fileName = filePath.split("/").pop()?.replace(/\.[^.]+$/, "");
+  if (!fileName) {
+    return "Registro da feira";
+  }
+
+  const cleaned = fileName.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!cleaned) {
+    return "Registro da feira";
+  }
+
+  return cleaned
+    .split(" ")
+    .map((word) => word.charAt(0).toLocaleUpperCase("pt-BR") + word.slice(1))
+    .join(" ");
+};
 
 const stats = [
   { icon: Building2, label: "Expositores", value: "100+" },
@@ -99,33 +128,164 @@ const supporters = [
   { name: "Unicef", logo: logoUnicef },
 ];
 
-const galleryImages = [
+const galleryStaticImages: GalleryImage[] = [
   {
     src: heroBg,
     caption: "Edição 2022 – Arena principal lotada",
+    showCaption: false,
   },
   {
     src: heroBg2,
     caption: "Networking no lounge de negócios",
+    showCaption: false,
   },
   {
     src: heroBg3,
     caption: "Experiência gastronômica dos expositores",
+    showCaption: false,
   },
   {
     src: heroBg2,
     caption: "Mentorias coletivas com especialistas",
+    showCaption: false,
   },
   {
     src: heroBg3,
     caption: "Palco multi-trilhas com cases do Sertão",
+    showCaption: false,
   },
-];
+] as const;
+
+const galleryDynamicImages: GalleryImage[] = aboutPhotoEntries.map(([filePath, module]) => ({
+  src: module.default,
+  caption: formatCaptionFromPath(filePath),
+  showCaption: false,
+}));
+
+const galleryImages: GalleryImage[] = [...galleryStaticImages, ...galleryDynamicImages];
 
 const Sobre = () => {
-  const [mainImage, ...secondaryImages] = galleryImages;
-  const leftImages = secondaryImages.slice(0, 2);
-  const rightImages = secondaryImages.slice(2);
+  const fallbackImage = useMemo<GalleryImage>(
+    () => ({ src: heroBg, caption: "Registro da feira", showCaption: true }),
+    []
+  );
+
+  const slideshowImages = useMemo<GalleryImage[]>(() => {
+    return galleryImages.length > 0 ? galleryImages : [fallbackImage];
+  }, [fallbackImage]);
+
+  const totalSlides = slideshowImages.length;
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [previousIndex, setPreviousIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
+  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearAutoPlay = useCallback(() => {
+    if (autoplayRef.current) {
+      clearInterval(autoplayRef.current);
+      autoplayRef.current = null;
+    }
+  }, []);
+
+  const startAutoPlay = useCallback(() => {
+    if (totalSlides <= 1) {
+      clearAutoPlay();
+      return;
+    }
+
+    clearAutoPlay();
+    autoplayRef.current = setInterval(() => {
+      setSlideDirection(1);
+      setCurrentIndex((prev) => {
+        const next = (prev + 1) % totalSlides;
+        setPreviousIndex(prev);
+        return next;
+      });
+    }, 6000);
+  }, [clearAutoPlay, totalSlides]);
+
+  const handleNavigation = useCallback(
+    (direction: 1 | -1) => {
+      if (totalSlides <= 1) {
+        return;
+      }
+
+      setSlideDirection(direction);
+      setCurrentIndex((prev) => {
+        const next = (prev + direction + totalSlides) % totalSlides;
+        setPreviousIndex(prev);
+        return next;
+      });
+      startAutoPlay();
+    },
+    [startAutoPlay, totalSlides]
+  );
+
+  useEffect(() => {
+    startAutoPlay();
+
+    return () => {
+      clearAutoPlay();
+    };
+  }, [startAutoPlay, clearAutoPlay]);
+
+  const activeImage = slideshowImages[currentIndex] ?? slideshowImages[0];
+  const canNavigate = totalSlides > 1;
+
+  const upcomingImages = useMemo(() => {
+    if (!canNavigate) {
+      return [] as GalleryImage[];
+    }
+
+    const maxPreview = Math.min(4, totalSlides - 1);
+
+    return Array.from({ length: maxPreview }, (_, index) => {
+      const nextIndex = (currentIndex + index + 1) % totalSlides;
+      return slideshowImages[nextIndex];
+    });
+  }, [canNavigate, currentIndex, slideshowImages, totalSlides]);
+
+  const getSlideClasses = useCallback(
+    (index: number) => {
+      if (index === currentIndex) {
+        return "opacity-100 translate-x-0 scale-100 rotate-0";
+      }
+
+      if (index === previousIndex) {
+        return slideDirection === 1
+          ? "-translate-x-[12%] opacity-0 scale-95 rotate-2"
+          : "translate-x-[12%] opacity-0 scale-95 -rotate-2";
+      }
+
+      return slideDirection === 1
+        ? "translate-x-[120%] opacity-0 scale-110 -rotate-2"
+        : "-translate-x-[120%] opacity-0 scale-110 rotate-2";
+    },
+    [currentIndex, previousIndex, slideDirection]
+  );
+
+  const resolveCaption = useCallback((image?: GalleryImage) => {
+    if (!image) {
+      return "Registro da feira";
+    }
+    if (image.showCaption === false) {
+      return undefined;
+    }
+    return image.caption ?? "Registro da feira";
+  }, []);
+
+  const activeCaption = useMemo(
+    () => resolveCaption(slideshowImages[currentIndex]),
+    [currentIndex, resolveCaption, slideshowImages]
+  );
+
+  const handleMouseEnter = useCallback(() => {
+    clearAutoPlay();
+  }, [clearAutoPlay]);
+
+  const handleMouseLeave = useCallback(() => {
+    startAutoPlay();
+  }, [startAutoPlay]);
 
   return (
     <div className="min-h-screen flex flex-col relative bg-gradient-to-br from-background via-secondary/10 to-background/40">
@@ -253,75 +413,120 @@ const Sobre = () => {
             <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-secondary/20 blur-3xl" />
 
             <div className="relative text-center">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-white/90">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-primary">
                 Memórias da feira
               </span>
-              <h2 className="mt-4 text-2xl font-bold text-white sm:text-3xl lg:text-4xl">
+              <h2 className="mt-4 text-2xl font-bold text-primary sm:text-3xl lg:text-4xl">
                 Reviva os momentos que marcaram empreendedores e visitantes
               </h2>
-              <p className="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-white/80 sm:text-base">
+              <p className="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-foreground/80 sm:text-base">
                 Cada edição deixa histórias inesquecíveis. Confira alguns registros que ilustram a energia, a diversidade e o clima colaborativo da Feira do Empreendedor ao longo dos anos.
               </p>
             </div>
 
-            <div className="relative mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-[0.75fr_1.35fr_0.75fr] xl:items-stretch">
-              <div className="order-2 flex flex-col gap-4 rounded-[2rem] bg-white/5 p-1 shadow-lg backdrop-blur-sm md:order-2 xl:order-1">
-                {leftImages.map((image) => (
-                  <figure
-                    key={image.caption}
-                    className="relative overflow-hidden rounded-[1.75rem] border border-white/20 bg-white/10"
-                  >
-                    <img
-                      src={image.src}
-                      alt={image.caption}
-                      className="h-48 w-full object-cover transition-transform duration-700 hover:scale-105"
-                      loading="lazy"
+            <div
+              className="relative mt-10 flex flex-col gap-6"
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+            >
+              <div className="relative h-[360px] sm:h-[420px] lg:h-[520px]">
+                {slideshowImages.map((image, index) => {
+                  const caption = resolveCaption(image);
+                  return (
+                    <figure
+                      key={`${image.src}-${index}`}
+                      className={`absolute inset-0 flex items-stretch transition-all duration-700 ease-&lsqb;cubic-bezier(0.76,0,0.24,1)&rsqb; will-change-transform ${getSlideClasses(index)}`}
+                    >
+                      <div className="relative h-full w-full overflow-hidden rounded-[2.75rem] border border-white/40 bg-white/70 shadow-2xl backdrop-blur">
+                        <img
+                          src={image.src}
+                          alt={caption ?? "Registro da feira"}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/45 via-secondary/30 to-accent/30 mix-blend-multiply" />
+                        {caption && (
+                          <figcaption className="absolute bottom-0 left-0 right-0 space-y-2 bg-gradient-to-t from-black/80 via-black/10 to-transparent px-6 pb-6 pt-20 text-left text-white">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/90">
+                              Registro
+                            </span>
+                            <p className="text-lg font-semibold leading-tight sm:text-xl">
+                              {caption}
+                            </p>
+                          </figcaption>
+                        )}
+                      </div>
+                    </figure>
+                  );
+                })}
+
+                {canNavigate && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleNavigation(-1)}
+                      aria-label="Foto anterior"
+                      className="absolute left-6 top-1/2 -translate-y-1/2 rounded-full bg-white/25 p-3 text-white backdrop-blur transition hover:bg-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleNavigation(1)}
+                      aria-label="Próxima foto"
+                      className="absolute right-6 top-1/2 -translate-y-1/2 rounded-full bg-white/25 p-3 text-white backdrop-blur transition hover:bg-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                )}
+
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-16 items-end justify-center gap-2 px-6 pb-4">
+                  {slideshowImages.map((_, index) => (
+                    <span
+                      key={`indicator-${index}`}
+                      className={`h-[3px] w-12 rounded-full transition-all duration-500 ${
+                        index === currentIndex
+                          ? "bg-white shadow-[0_0_15px_rgba(255,255,255,0.6)]"
+                          : "bg-white/40"
+                      }`}
                     />
-                    <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent px-4 pb-4 pt-12 text-left text-xs font-medium text-white/90">
-                      {image.caption}
-                    </figcaption>
-                  </figure>
-                ))}
+                  ))}
+                </div>
+
+                <span className="sr-only" aria-live="polite">
+                  {activeCaption}
+                </span>
               </div>
 
-              <div className="order-1 overflow-hidden rounded-[2.75rem] border border-white/20 bg-white/10 shadow-2xl backdrop-blur md:order-1 md:col-span-2 xl:order-2 xl:col-span-1">
-                <figure className="relative h-[340px] sm:h-[420px] lg:h-[520px]">
-                  <img
-                    src={mainImage.src}
-                    alt={mainImage.caption}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-tr from-black/60 via-black/10 to-transparent" />
-                  <figcaption className="absolute bottom-0 left-0 right-0 space-y-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-6 pb-6 pt-20 text-left text-white">
-                    <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em]">
-                      Destaque
-                    </span>
-                    <p className="text-lg font-semibold leading-tight sm:text-xl">
-                      {mainImage.caption}
-                    </p>
-                  </figcaption>
-                </figure>
-              </div>
-
-              <div className="order-3 flex flex-col gap-4 rounded-[2rem] bg-white/5 p-1 shadow-lg backdrop-blur-sm md:order-3 md:col-span-1 xl:col-span-1 xl:order-3">
-                {rightImages.map((image) => (
-                  <figure
-                    key={image.caption}
-                    className="relative overflow-hidden rounded-[1.75rem] border border-white/20 bg-white/10"
-                  >
-                    <img
-                      src={image.src}
-                      alt={image.caption}
-                      className="h-48 w-full object-cover transition-transform duration-700 hover:scale-105"
-                      loading="lazy"
-                    />
-                    <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent px-4 pb-4 pt-12 text-left text-xs font-medium text-white/90">
-                      {image.caption}
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
+              {canNavigate && (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {upcomingImages.map((image, index) => {
+                    const caption = resolveCaption(image);
+                    return (
+                      <figure
+                        key={`${image.src}-preview-${index}`}
+                        className="group relative overflow-hidden rounded-2xl border border-white/30 bg-white/50 p-3 shadow-lg backdrop-blur transition hover:-translate-y-1 hover:shadow-xl"
+                      >
+                        <div className="relative h-32 w-full overflow-hidden rounded-xl">
+                          <img
+                            src={image.src}
+                            alt={caption ?? "Registro da feira"}
+                            className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-110"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/5 to-transparent" />
+                        </div>
+                        {caption && (
+                          <figcaption className="mt-3 text-xs font-medium text-primary/80">
+                            {caption}
+                          </figcaption>
+                        )}
+                      </figure>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </section>

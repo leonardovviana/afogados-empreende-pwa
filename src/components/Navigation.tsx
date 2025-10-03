@@ -1,38 +1,44 @@
 import logoAfadm from "@/assets/logoafadm2.png";
 import logoFeira from "@/assets/logofeira.png";
 import logoSala from "@/assets/logosala.png";
-import logoUnicef from "@/assets/logounicef.png";
+import logoSebrae from "@/assets/logosebrae.png";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+
+const NAV_LINKS = [
+  { name: "Início", path: "/" },
+  { name: "Cadastro", path: "/cadastro" },
+  { name: "Consulta", path: "/consulta" },
+  { name: "Mapa", path: "/mapa" },
+  { name: "Sobre", path: "/sobre" },
+  { name: "Manual", path: "/manual" },
+] as const;
+
+const REALIZATION_LOGOS = [
+  {
+    src: logoAfadm,
+    alt: "Secretaria de Administração de Afogados da Ingazeira",
+  },
+  {
+    src: logoSala,
+    alt: "Sala do Empreendedor",
+  },
+  {
+    src: logoSebrae,
+    alt: "SEBRAE",
+  },
+] as const;
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
 
-  const links = [
-    { name: "Início", path: "/" },
-    { name: "Cadastro", path: "/cadastro" },
-    { name: "Consulta", path: "/consulta" },
-    { name: "Mapa", path: "/mapa" },
-    { name: "Sobre", path: "/sobre" },
-    { name: "Manual", path: "/manual" },
-  ];
-
-  const realizationLogos = [
-    {
-      src: logoAfadm,
-      alt: "Secretaria de Administração de Afogados da Ingazeira",
-    },
-    {
-      src: logoSala,
-      alt: "Sala do Empreendedor",
-    },
-    {
-      src: logoUnicef,
-      alt: "UNICEF",
-    },
-  ];
+  const links = useMemo(() => NAV_LINKS, []);
+  const realizationLogos = useMemo(() => REALIZATION_LOGOS, []);
+  const isActive = useCallback((path: string) => location.pathname === path, [location.pathname]);
+  const toggleMenu = useCallback(() => setIsOpen((previous) => !previous), []);
+  const closeMenu = useCallback(() => setIsOpen(false), []);
 
   return (
     <>
@@ -43,18 +49,18 @@ const Navigation = () => {
           <div className="flex flex-1 items-center justify-center md:justify-start gap-1.5 md:gap-3">
             <Link
               to="/"
-              className="flex items-center gap-3 text-base md:text-lg font-semibold text-primary hover:scale-105 transition-transform"
+              className="flex items-center gap-3 md:gap-4 text-base md:text-xl font-semibold text-primary hover:scale-105 transition-transform"
             >
               <img
                 src={logoFeira}
                 alt="Logo 8ª Feira do Empreendedor"
-                className="h-9 sm:h-10 w-auto object-contain"
+                className="h-9 sm:h-10 md:h-12 w-auto object-contain"
                 draggable={false}
               />
               <span className="hidden lg:inline">8ª Feira do Empreendedor</span>
             </Link>
 
-            <div className="hidden sm:flex items-center gap-1.5 md:gap-2 pl-2 md:pl-2.5 border-l border-primary/15">
+            <div className="hidden xl:flex items-center gap-1.5 md:gap-2 pl-2 md:pl-2.5 border-l border-primary/15">
               <span className="text-[10px] md:text-xs font-semibold uppercase tracking-[0.28em] text-primary/60">
                 Realização
               </span>
@@ -83,7 +89,7 @@ const Navigation = () => {
                 key={link.path}
                 to={link.path}
                 className={`px-3 lg:px-4 py-2 text-sm font-medium rounded-xl transition-all ${
-                  location.pathname === link.path
+                  isActive(link.path)
                     ? "bg-primary/10 text-primary shadow-sm"
                     : "text-primary/80 hover:bg-primary/5 hover:text-primary"
                 }`}
@@ -95,7 +101,7 @@ const Navigation = () => {
 
           {/* Mobile Menu Button */}
           <button
-            onClick={() => setIsOpen(!isOpen)}
+            onClick={toggleMenu}
             className="md:hidden text-primary hover:bg-primary/10 p-2 rounded-xl transition-colors backdrop-blur-sm"
           >
             {isOpen ? <X size={22} /> : <Menu size={22} />}
@@ -110,9 +116,9 @@ const Navigation = () => {
                 <Link
                   key={link.path}
                   to={link.path}
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeMenu}
                   className={`block px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
-                    location.pathname === link.path
+                    isActive(link.path)
                       ? "bg-primary/10 text-primary"
                       : "text-primary/80 hover:bg-primary/5 hover:text-primary"
                   }`}
@@ -148,4 +154,4 @@ const Navigation = () => {
   );
 };
 
-export default Navigation;
+export default memo(Navigation);

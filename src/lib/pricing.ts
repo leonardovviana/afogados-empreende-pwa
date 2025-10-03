@@ -15,6 +15,21 @@ export const PAYMENT_UNIT_PRICES: Record<FormattedPaymentMethod, number> = {
   "R$ 750,00 Dois ou mais stands": 750,
 };
 
+export const PAYMENT_METHOD_DISPLAY_LABELS: Record<FormattedPaymentMethod, string> = {
+  "R$ 700,00 No lançamento": "R$ 700,00",
+  "R$ 850,00 Após o lançamento": "R$ 850,00",
+  "R$ 750,00 Dois ou mais stands": "R$ 750,00",
+};
+
+export const getPaymentMethodDisplayLabel = (method: string): string => {
+  const normalized = FORMATTED_PAYMENT_METHODS.find((option) => option === method);
+  if (!normalized) {
+    return method;
+  }
+
+  return PAYMENT_METHOD_DISPLAY_LABELS[normalized];
+};
+
 export const formatCurrencyBRL = (value: number) =>
   new Intl.NumberFormat("pt-BR", {
     style: "currency",

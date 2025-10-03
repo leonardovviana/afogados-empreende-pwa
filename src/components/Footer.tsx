@@ -5,13 +5,44 @@ import logoSala from "@/assets/logosala.png";
 import logoSebrae from "@/assets/logosebrae.png";
 import logoUnicef from "@/assets/logounicef.png";
 import { CalendarDays, Instagram, MapPin, MessageCircle } from "lucide-react";
+import { memo, useMemo } from "react";
 import { Link } from "react-router-dom";
 
+const REALIZATION_BRANDS = [
+  { src: logoAfadm, alt: "Secretaria de Administração de Afogados da Ingazeira" },
+  { src: logoSala, alt: "Sala do Empreendedor" },
+  { src: logoSebrae, alt: "SEBRAE" },
+] as const;
+
+const PARTNER_BRANDS = [
+  { src: logoCdl, alt: "CDL Afogados da Ingazeira" },
+  { src: logoUnicef, alt: "UNICEF" },
+] as const;
+
+const SOCIAL_LINKS = [
+  {
+    href: "https://wa.me/5587999999999",
+    label: "WhatsApp",
+    icon: MessageCircle,
+    ariaLabel: "WhatsApp",
+  },
+  {
+    href: "https://instagram.com/feiradoempreendedor",
+    label: "Instagram",
+    icon: Instagram,
+    ariaLabel: "Instagram",
+  },
+] as const;
+
 const Footer = () => {
+  const realizationLogos = useMemo(() => REALIZATION_BRANDS, []);
+  const partnerLogos = useMemo(() => PARTNER_BRANDS, []);
+  const socialLinks = useMemo(() => SOCIAL_LINKS, []);
+
   return (
     <footer className="border-t border-primary/10 bg-gradient-to-b from-background via-primary/5 to-background text-muted-foreground">
       <div className="container mx-auto px-4 py-8 md:py-14 space-y-8 md:space-y-10">
-        <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr_0.9fr] md:gap-10">
+        <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:gap-10">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <img
@@ -36,24 +67,18 @@ const Footer = () => {
               </p>
             </div>
             <div className="flex items-center gap-3 pt-4">
-              <a
-                href="https://wa.me/5587999999999"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-white/70 text-primary transition hover:-translate-y-1 hover:bg-white md:h-11 md:w-11"
-                aria-label="WhatsApp"
-              >
-                <MessageCircle size={20} />
-              </a>
-              <a
-                href="https://instagram.com/feiradoempreendedor"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-white/70 text-primary transition hover:-translate-y-1 hover:bg-white md:h-11 md:w-11"
-                aria-label="Instagram"
-              >
-                <Instagram size={20} />
-              </a>
+              {socialLinks.map(({ href, icon: Icon, ariaLabel }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-white/70 text-primary transition hover:-translate-y-1 hover:bg-white md:h-11 md:w-11"
+                  aria-label={ariaLabel}
+                >
+                  <Icon size={20} />
+                </a>
+              ))}
             </div>
           </div>
 
@@ -63,11 +88,7 @@ const Footer = () => {
                 Realização
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3 md:mt-4 md:gap-4">
-                {[
-                  { src: logoAfadm, alt: "Secretaria de Administração de Afogados da Ingazeira" },
-                  { src: logoSala, alt: "Sala do Empreendedor" },
-                  { src: logoUnicef, alt: "UNICEF" },
-                ].map((logo) => (
+                {realizationLogos.map((logo) => (
                   <div
                     key={logo.alt}
                     className="flex h-14 w-24 items-center justify-center rounded-2xl border border-primary/10 bg-white/80 p-2 shadow-sm backdrop-blur-md md:h-16 md:w-28"
@@ -83,7 +104,7 @@ const Footer = () => {
                 Parceiros
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3 md:mt-4 md:gap-4">
-                {[{ src: logoCdl, alt: "CDL Afogados da Ingazeira" }, { src: logoSebrae, alt: "SEBRAE" }].map((logo) => (
+                {partnerLogos.map((logo) => (
                   <div
                     key={logo.alt}
                     className="flex h-14 w-24 items-center justify-center rounded-2xl border border-primary/10 bg-white/80 p-2 shadow-sm backdrop-blur-md md:h-16 md:w-28"
@@ -94,25 +115,9 @@ const Footer = () => {
               </div>
             </div>
           </div>
-
-          <div className="space-y-5">
-            <h4 className="text-lg font-semibold text-primary">Dúvidas e suporte</h4>
-            <div className="space-y-3 text-sm">
-              <p>
-                Atendimento da coordenação da feira disponível de segunda a sexta-feira, das 8h às 17h.
-              </p>
-              <p className="font-medium text-primary">(87) 3838-1557</p>
-              <p>
-                E-mail: <a href="mailto:feira@afogados.pe.gov.br" className="text-primary underline">feira@afogados.pe.gov.br</a>
-              </p>
-              <Link to="/manual" className="inline-flex items-center gap-2 text-primary underline">
-                Manual do Expositor
-              </Link>
-            </div>
-          </div>
         </div>
 
-  <div className="flex flex-col items-center justify-between gap-3 border-t border-primary/10 pt-5 text-xs text-muted-foreground/80 md:flex-row md:pt-6 md:text-sm">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-primary/10 pt-5 text-xs text-muted-foreground/80 md:flex-row md:pt-6 md:text-sm">
           <p>© 2025 Feira do Empreendedor. Todos os direitos reservados.</p>
           <Link to="/admin/dashboard" className="text-primary/70 underline transition hover:text-primary">
             Painel Administrativo
@@ -123,4 +128,4 @@ const Footer = () => {
   );
 };
 
-export default Footer;
+export default memo(Footer);

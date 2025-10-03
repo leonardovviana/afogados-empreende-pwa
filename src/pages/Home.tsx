@@ -6,43 +6,92 @@ import Footer from "@/components/Footer";
 import InstallPrompt from "@/components/InstallPrompt";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
+import { getMixedPhotoUrls } from "@/lib/photos";
 import {
-    ArrowRight,
-    Building2,
-    CalendarDays,
-    ChevronLeft,
-    ChevronRight,
-    ClipboardList,
-    Info,
-    Map,
-    MapPin,
-    Sparkles,
-    TrendingUp,
-    Users,
+  ArrowRight,
+  Building2,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Info,
+  Map,
+  MapPin,
+  Sparkles,
+  TrendingUp,
+  Users,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-const Home = () => {
-  const heroMetrics = [
-    {
-      icon: Building2,
-      label: "Expositores",
-      value: "100+",
-    },
-    {
-      icon: Users,
-      label: "Visitantes",
-      value: "5.000+",
-    },
-    {
-      icon: TrendingUp,
-      label: "Negócios",
-      value: "R$ 2 mi",
-    },
-  ];
+const HERO_DYNAMIC_IMAGES = getMixedPhotoUrls();
 
-  const heroImages = useMemo(() => [heroImage1, heroImage2, heroImage3], []);
+const HERO_IMAGES = [heroImage1, heroImage2, heroImage3] as const;
+const HERO_IMAGES_WITH_PHOTOS: string[] = [...HERO_IMAGES, ...HERO_DYNAMIC_IMAGES];
+
+const HERO_METRICS = [
+  {
+    icon: Building2,
+    label: "Expositores",
+    value: "100+",
+  },
+  {
+    icon: Users,
+    label: "Visitantes",
+    value: "30.000+",
+  },
+  {
+    icon: TrendingUp,
+    label: "Negócios",
+    value: "R$ 2 mi",
+  },
+] as const;
+
+const HERO_HIGHLIGHTS = [
+  {
+    colorClass: "bg-secondary",
+    text: "Workshops e mentorias exclusivas",
+  },
+  {
+    colorClass: "bg-accent",
+    text: "Rodadas de negócio e networking",
+  },
+  {
+    colorClass: "bg-sand",
+    text: "Espaço gastronômico e experiências",
+  },
+] as const;
+
+const QUICK_LINKS = [
+  {
+    to: "/mapa",
+    title: "Mapa do Evento",
+    description: "Veja a localização e distribuição completa dos stands",
+    icon: Map,
+    gradientClass: "from-primary/5 to-secondary/5",
+  },
+  {
+    to: "/sobre",
+    title: "Conheça o Evento",
+    description: "História, números e tudo sobre nossa feira",
+    icon: Info,
+    gradientClass: "from-secondary/5 to-accent/5",
+  },
+  {
+    to: "/manual",
+    title: "Manual do Expositor",
+    description: "Guia completo com todas as orientações",
+    icon: ClipboardList,
+    gradientClass: "from-accent/5 to-primary/5",
+  },
+] as const;
+
+const Home = () => {
+  const heroMetrics = HERO_METRICS;
+  const heroHighlights = HERO_HIGHLIGHTS;
+  const quickLinks = QUICK_LINKS;
+  const heroImages = HERO_IMAGES_WITH_PHOTOS;
+  const totalImages = heroImages.length;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -52,21 +101,21 @@ const Home = () => {
     }
 
     intervalRef.current = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
+      setCurrentImageIndex((prev) => (prev + 1) % totalImages);
     }, 5000);
-  }, [heroImages.length]);
+  }, [totalImages]);
 
   const goToImage = useCallback(
     (direction: "next" | "prev") => {
       setCurrentImageIndex((prev) => {
         if (direction === "next") {
-          return (prev + 1) % heroImages.length;
+          return (prev + 1) % totalImages;
         }
-        return (prev - 1 + heroImages.length) % heroImages.length;
+        return (prev - 1 + totalImages) % totalImages;
       });
       startAutoPlay();
     },
-    [heroImages.length, startAutoPlay]
+    [startAutoPlay, totalImages]
   );
 
   useEffect(() => {
@@ -152,18 +201,12 @@ const Home = () => {
                 </div>
 
                 <div className="mt-12 grid gap-4 text-sm text-muted-foreground sm:grid-cols-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-secondary"></span>
-                    Workshops e mentorias exclusivas
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-accent"></span>
-                    Rodadas de negócio e networking
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-sand"></span>
-                    Espaço gastronômico e experiências
-                  </div>
+                  {heroHighlights.map(({ colorClass, text }) => (
+                    <div key={text} className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${colorClass}`}></span>
+                      {text}
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -262,47 +305,24 @@ const Home = () => {
               Acesso Rápido
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
-              <Link
-                to="/mapa"
-                className="group glass-card p-6 md:p-8 rounded-3xl hover-lift relative overflow-hidden glass-card-hover"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative z-10">
-                  <div className="text-5xl md:text-6xl mb-3 md:mb-4 transform group-hover:scale-110 transition-transform">
-                    <Map className="w-12 h-12 md:w-14 md:h-14 text-primary" />
+              {quickLinks.map(({ to, icon: Icon, title, description, gradientClass }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="group glass-card p-6 md:p-8 rounded-3xl hover-lift relative overflow-hidden glass-card-hover"
+                >
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${gradientClass} opacity-0 group-hover:opacity-100 transition-opacity`}
+                  ></div>
+                  <div className="relative z-10">
+                    <div className="text-5xl md:text-6xl mb-3 md:mb-4 transform group-hover:scale-110 transition-transform">
+                      <Icon className="w-12 h-12 md:w-14 md:h-14 text-primary" />
+                    </div>
+                    <h3 className="text-xl md:text-2xl font-bold text-primary mb-2 md:mb-3">{title}</h3>
+                    <p className="text-sm md:text-base text-muted-foreground">{description}</p>
                   </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-primary mb-2 md:mb-3">Mapa do Evento</h3>
-                  <p className="text-sm md:text-base text-muted-foreground">Veja a localização e distribuição completa dos stands</p>
-                </div>
-              </Link>
-
-              <Link
-                to="/sobre"
-                className="group glass-card p-6 md:p-8 rounded-3xl hover-lift relative overflow-hidden glass-card-hover"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative z-10">
-                  <div className="text-5xl md:text-6xl mb-3 md:mb-4 transform group-hover:scale-110 transition-transform">
-                    <Info className="w-12 h-12 md:w-14 md:h-14 text-primary" />
-                  </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-primary mb-2 md:mb-3">Conheça o Evento</h3>
-                  <p className="text-sm md:text-base text-muted-foreground">História, números e tudo sobre nossa feira</p>
-                </div>
-              </Link>
-
-              <Link
-                to="/manual"
-                className="group glass-card p-6 md:p-8 rounded-3xl hover-lift relative overflow-hidden glass-card-hover"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative z-10">
-                  <div className="text-5xl md:text-6xl mb-3 md:mb-4 transform group-hover:scale-110 transition-transform">
-                    <ClipboardList className="w-12 h-12 md:w-14 md:h-14 text-primary" />
-                  </div>
-                  <h3 className="text-xl md:text-2xl font-bold text-primary mb-2 md:mb-3">Manual do Expositor</h3>
-                  <p className="text-sm md:text-base text-muted-foreground">Guia completo com todas as orientações</p>
-                </div>
-              </Link>
+                </Link>
+              ))}
             </div>
           </div>
         </div>

@@ -1,7 +1,8 @@
+import mapaFeira from "@/assets/mapafeira.jpg";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const Mapa = () => {
@@ -61,21 +62,17 @@ const Mapa = () => {
                   ref={zoomContainerRef}
                   className="origin-top-left transition-transform duration-300"
                 >
-                  {/* Placeholder Map */}
-                  <div className="bg-background rounded-lg p-6 md:p-8 min-h-[400px] md:min-h-[600px] flex items-center justify-center border-2 border-dashed border-border">
-                    <div className="text-center max-w-md">
-                      <div className="bg-primary/10 w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
-                        <MapIcon className="w-10 h-10 md:w-12 md:h-12 text-primary" />
-                      </div>
-                      <h3 className="text-lg md:text-xl font-bold mb-2">
-                        Mapa em Breve
-                      </h3>
-                      <p className="text-sm md:text-base text-muted-foreground">
-                        O mapa detalhado do evento será disponibilizado em breve. 
-                        Aguarde novidades!
-                      </p>
-                    </div>
-                  </div>
+                  <figure className="bg-background rounded-lg p-2 md:p-4 shadow-inner border border-border">
+                    <img
+                      src={mapaFeira}
+                      alt="Mapa oficial da Feira do Empreendedor"
+                      className="max-w-full h-auto rounded-md shadow-lg"
+                      loading="lazy"
+                    />
+                    <figcaption className="mt-2 text-center text-xs md:text-sm text-muted-foreground">
+                      Utilize o zoom para explorar os setores, palcos e áreas de convivência.
+                    </figcaption>
+                  </figure>
                 </div>
               </div>
 

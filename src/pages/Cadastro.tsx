@@ -8,16 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import type { ExhibitorRegistrationInsert } from "@/integrations/supabase/types";
 import {
-    FORMATTED_PAYMENT_METHODS,
-    STAND_OPTIONS,
     calculateTotalAmount,
     formatCurrencyBRL,
+    FORMATTED_PAYMENT_METHODS,
+    STAND_OPTIONS,
     type FormattedPaymentMethod,
 } from "@/lib/pricing";
+import { fetchRegistrationSettings, RegistrationSettingsNotProvisionedError } from "@/lib/registration-settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, type FieldPath } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -225,7 +226,17 @@ const formSchema = z.object({
     });
   }
 
-  if (data.payment_method === "R$ 750,00 Dois ou mais stands" && data.stands_quantity === "1") {
+  const standsCount = Number.parseInt(data.stands_quantity, 10);
+
+  if (standsCount >= 2 && data.payment_method !== "R$ 750,00 Dois ou mais stands") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["payment_method"],
+      message: "Para dois ou mais stands, selecione o valor de R$ 750,00.",
+    });
+  }
+
+  if (data.payment_method === "R$ 750,00 Dois ou mais stands" && standsCount <= 1) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["payment_method"],
@@ -256,10 +267,18 @@ const businessSegments = [
   "Outros",
 ];
 
+type PaymentOption = {
+  value: FormattedPaymentMethod;
+  label: string;
+  description?: string;
+};
+
 const Cadastro = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const [launchPricingEnabled, setLaunchPricingEnabled] = useState(true);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -283,6 +302,39 @@ const Cadastro = () => {
     "phone",
   ];
 
+  useEffect(() => {
+    let active = true;
+
+    const loadSettings = async () => {
+      try {
+        const settings = await fetchRegistrationSettings();
+        if (!active) return;
+        setLaunchPricingEnabled(settings.launchPricingEnabled);
+      } catch (error) {
+        console.error("Erro ao carregar configuração de preços:", error);
+        if (!active) return;
+        if (error instanceof RegistrationSettingsNotProvisionedError) {
+          toast.error(
+            "Configuração de preços ainda não provisionada. Execute as migrações do Supabase e tente novamente. Usando valores padrão por enquanto."
+          );
+        } else {
+          toast.error("Não foi possível carregar as opções de pagamento. Usando valores padrão.");
+        }
+        setLaunchPricingEnabled(true);
+      } finally {
+        if (active) {
+          setSettingsLoading(false);
+        }
+      }
+    };
+
+    void loadSettings();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleNextStep = async () => {
     const isValid = await form.trigger(firstStepFields);
     if (isValid) {
@@ -296,6 +348,61 @@ const Cadastro = () => {
 
   const standsQuantity = Number.parseInt(form.watch("stands_quantity") ?? "1", 10) || 1;
   const paymentMethod = form.watch("payment_method") as FormattedPaymentMethod | undefined;
+
+  const availablePaymentOptions = useMemo<PaymentOption[]>(() => {
+    if (standsQuantity >= 2) {
+      return [
+        {
+          value: "R$ 750,00 Dois ou mais stands",
+          label: "R$ 750,00",
+          description: "Valor fixo por stand para pedidos com dois ou mais stands.",
+        },
+      ];
+    }
+
+    const options: PaymentOption[] = [];
+
+    if (launchPricingEnabled) {
+      options.push({
+        value: "R$ 700,00 No lançamento",
+        label: "R$ 700,00",
+        description: "Valor promocional liberado pelo painel administrativo.",
+      });
+    }
+
+    options.push({
+      value: "R$ 850,00 Após o lançamento",
+      label: "R$ 850,00",
+    });
+
+    return options;
+  }, [launchPricingEnabled, standsQuantity]);
+
+  useEffect(() => {
+    if (standsQuantity >= 2) {
+      if (paymentMethod !== "R$ 750,00 Dois ou mais stands") {
+        form.setValue("payment_method", "R$ 750,00 Dois ou mais stands", { shouldValidate: true });
+      }
+      return;
+    }
+
+    if (!launchPricingEnabled && paymentMethod === "R$ 700,00 No lançamento") {
+      form.setValue("payment_method", "R$ 850,00 Após o lançamento", { shouldValidate: true });
+      return;
+    }
+
+    if (availablePaymentOptions.length === 1) {
+      const fallback = availablePaymentOptions[0]?.value;
+      if (fallback && paymentMethod !== fallback) {
+        form.setValue("payment_method", fallback, { shouldValidate: true });
+      }
+      return;
+    }
+
+    if (paymentMethod && !availablePaymentOptions.some((option) => option.value === paymentMethod)) {
+      form.setValue("payment_method", undefined, { shouldValidate: true });
+    }
+  }, [availablePaymentOptions, form, launchPricingEnabled, paymentMethod, standsQuantity]);
 
   const totalAmount = calculateTotalAmount(standsQuantity, paymentMethod);
 
@@ -323,6 +430,12 @@ const Cadastro = () => {
       const duplicate = await hasExistingRegistration(normalizedDocument, documentCandidates);
       if (duplicate) {
         toast.error("Este CPF/CNPJ já está cadastrado.");
+        setLoading(false);
+        return;
+      }
+
+      if (!launchPricingEnabled && data.payment_method === "R$ 700,00 No lançamento") {
+        toast.error("O valor promocional de R$ 700,00 não está disponível no momento.");
         setLoading(false);
         return;
       }
@@ -359,7 +472,7 @@ const Cadastro = () => {
 
       const { error: insertError } = await supabase
         .from("exhibitor_registrations")
-        .insert([insertPayload]);
+        .insert([insertPayload as never]);
 
       if (insertError) {
         if (isMissingColumnError(insertError)) {
@@ -372,7 +485,7 @@ const Cadastro = () => {
 
           const { error: retryError } = await supabase
             .from("exhibitor_registrations")
-            .insert([fallbackPayload as ExhibitorRegistrationInsert]);
+            .insert([fallbackPayload as never]);
 
           if (retryError) {
             throw retryError;
@@ -633,24 +746,44 @@ const Cadastro = () => {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Forma de Pagamento *</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              disabled={settingsLoading}
+                            >
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione a forma" />
+                                <SelectTrigger disabled={settingsLoading}>
+                                  <SelectValue
+                                    placeholder={settingsLoading ? "Carregando opções..." : "Selecione a forma"}
+                                  />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="R$ 700,00 No lançamento">
-                                  R$ 700,00 No lançamento
-                                </SelectItem>
-                                <SelectItem value="R$ 850,00 Após o lançamento">
-                                  R$ 850,00 Após o lançamento
-                                </SelectItem>
-                                <SelectItem value="R$ 750,00 Dois ou mais stands">
-                                  R$ 750,00 Dois ou mais stands
-                                </SelectItem>
+                                {availablePaymentOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    <div className="flex flex-col">
+                                      <span>{option.label}</span>
+                                      {option.description ? (
+                                        <span className="text-xs text-muted-foreground">{option.description}</span>
+                                      ) : null}
+                                    </div>
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
+                            {settingsLoading ? (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Carregando opções disponíveis...
+                              </p>
+                            ) : standsQuantity >= 2 ? (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Para dois ou mais stands o valor é fixo: R$ 750,00 por stand.
+                              </p>
+                            ) : !launchPricingEnabled ? (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                O valor promocional de lançamento não está disponível no momento.
+                              </p>
+                            ) : null}
                             <FormMessage />
                           </FormItem>
                         )}

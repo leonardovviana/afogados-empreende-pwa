@@ -35,7 +35,6 @@ export interface ExhibitorRegistrationRow {
 	total_amount: number;
 	created_at: string;
 	updated_at: string;
-	cpf_cnpj_normalized?: string | null;
 }
 
 export type ExhibitorRegistrationInsert = {
@@ -60,6 +59,27 @@ export type ExhibitorRegistrationInsert = {
 export type ExhibitorRegistrationUpdate = Partial<
 	Omit<ExhibitorRegistrationRow, "id" | "created_at" | "updated_at">
 > & {
+	updated_at?: string;
+};
+
+export interface RegistrationSettingsRow {
+	id: number;
+	launch_pricing_enabled: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export type RegistrationSettingsInsert = {
+	id?: number;
+	launch_pricing_enabled: boolean;
+	created_at?: string;
+	updated_at?: string;
+};
+
+export type RegistrationSettingsUpdate = Partial<
+	Omit<RegistrationSettingsRow, "id" | "created_at" | "updated_at">
+> & {
+	id?: number;
 	updated_at?: string;
 };
 
@@ -95,6 +115,11 @@ export type Database = {
 				Row: AdminProfileRow;
 				Insert: AdminProfileInsert;
 				Update: AdminProfileUpdate;
+			};
+			registration_settings: {
+				Row: RegistrationSettingsRow;
+				Insert: RegistrationSettingsInsert;
+				Update: RegistrationSettingsUpdate;
 			};
 		};
 		Views: Record<string, never>;

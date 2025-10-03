@@ -3,36 +3,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 import {
-  clearSupabaseBrowserConfig,
-  getSupabaseConfigSnapshot,
-  isSupabaseConfigured,
-  persistSupabaseBrowserConfig,
-  refreshSupabaseClient,
-  supabase,
+    clearSupabaseBrowserConfig,
+    getSupabaseConfigSnapshot,
+    isSupabaseConfigured,
+    persistSupabaseBrowserConfig,
+    refreshSupabaseClient,
+    supabase,
 } from "@/integrations/supabase/client";
 import type { AdminProfileRow, ExhibitorRegistrationRow } from "@/integrations/supabase/types";
-import { calculateTotalAmount, formatCurrencyBRL } from "@/lib/pricing";
+import { calculateTotalAmount, formatCurrencyBRL, getPaymentMethodDisplayLabel } from "@/lib/pricing";
+import {
+    RegistrationSettingsNotProvisionedError,
+    fetchRegistrationSettings,
+    upsertRegistrationSettings,
+} from "@/lib/registration-settings";
 import { buildBoletoFilePath } from "@/lib/storage";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { Download, Loader2, LogOut, Search, UploadCloud } from "lucide-react";
+import { Download, Loader2, LogOut, RefreshCw, Search, Trash2, UploadCloud } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { utils as XLSXUtils, writeFile as writeXlsxFile } from "xlsx";
 
 const MISSING_SUPABASE_MESSAGE =
   "As credenciais do Supabase ainda não foram informadas. Preencha o URL e a chave anon nas variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY ou use o formulário abaixo para salvar as credenciais apenas neste navegador.";
@@ -160,6 +167,33 @@ const isPostgrestError = (error: unknown): error is PostgrestError =>
 
 const isNoRowsError = (error: unknown): boolean => isPostgrestError(error) && error.code === "PGRST116";
 
+const isStoragePermissionError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { statusCode?: number; status?: number; message?: string };
+  const status =
+    typeof candidate.statusCode === "number"
+      ? candidate.statusCode
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+
+  if (status === 403) {
+    return true;
+  }
+
+  if (typeof candidate.message === "string") {
+    return /permission|auth/i.test(candidate.message);
+  }
+
+  return false;
+};
+
+const PAYMENT_PROOF_PERMISSION_MESSAGE =
+  "As permissões do bucket de comprovantes não estão atualizadas. Execute as últimas migrações do Supabase (incluindo 20251003171000_refresh_payment_proof_security.sql) e tente novamente.";
+
 const fetchAdminProfile = async (userId: string): Promise<AdminProfileRow | null> => {
   const { data, error } = await supabase
     .from("admin_profiles")
@@ -183,15 +217,20 @@ const AdminDashboard = () => {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [viewingProofId, setViewingProofId] = useState<string | null>(null);
+  const [proofDeletingId, setProofDeletingId] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
-  const initialConfigSnapshot = useMemo(() => getSupabaseConfigSnapshot(), [getSupabaseConfigSnapshot]);
+  const initialConfigSnapshot = useMemo(() => getSupabaseConfigSnapshot(), []);
   const [configValues, setConfigValues] = useState({
     url: initialConfigSnapshot.url,
     anonKey: initialConfigSnapshot.anonKey,
   });
   const [configSource, setConfigSource] = useState(initialConfigSnapshot.source);
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [launchPricingEnabled, setLaunchPricingEnabled] = useState(true);
+  const [launchPricingLoading, setLaunchPricingLoading] = useState(true);
+  const [launchPricingSaving, setLaunchPricingSaving] = useState(false);
+  const [launchPricingAvailable, setLaunchPricingAvailable] = useState(true);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const navigate = useNavigate();
 
@@ -202,7 +241,7 @@ const AdminDashboard = () => {
     setConfigError(MISSING_SUPABASE_MESSAGE);
     setLoading(false);
     setIsSavingConfig(false);
-  }, [getSupabaseConfigSnapshot]);
+  }, []);
 
   const filteredRegistrations = useMemo(() => {
     if (!registrations.length) {
@@ -300,6 +339,77 @@ const AdminDashboard = () => {
     }
   }, [handleMissingConfig]);
 
+  const loadRegistrationSettings = useCallback(async () => {
+    if (!isSupabaseConfigured()) {
+      setLaunchPricingLoading(false);
+      return;
+    }
+
+    setLaunchPricingLoading(true);
+
+    try {
+      const settings = await fetchRegistrationSettings();
+      setLaunchPricingEnabled(settings.launchPricingEnabled);
+      setLaunchPricingAvailable(true);
+    } catch (error) {
+      console.error("Erro ao carregar configuração de preços:", error);
+      if (error instanceof RegistrationSettingsNotProvisionedError) {
+        setLaunchPricingAvailable(false);
+        toast.error(
+          "Configuração de preços indisponível. Execute as migrações do Supabase para liberar o controle."
+        );
+      } else {
+        toast.error("Não foi possível carregar a configuração de preços.");
+      }
+    } finally {
+      setLaunchPricingLoading(false);
+    }
+  }, []);
+
+  const handleLaunchPricingToggle = async (enabled: boolean) => {
+    if (!launchPricingAvailable) {
+      toast.error(
+        "Configuração de preços indisponível. Execute as migrações do Supabase para liberar o controle."
+      );
+      return;
+    }
+
+    if (launchPricingSaving || launchPricingLoading) {
+      return;
+    }
+
+    setLaunchPricingSaving(true);
+
+    try {
+      await upsertRegistrationSettings({ launchPricingEnabled: enabled });
+      setLaunchPricingEnabled(enabled);
+      await loadRegistrationSettings();
+      toast.success(
+        enabled
+          ? "Valor promocional de R$ 700,00 liberado para novos cadastros."
+          : "Valor promocional de R$ 700,00 desativado para novos cadastros."
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar configuração de preços:", error);
+      if (error instanceof RegistrationSettingsNotProvisionedError) {
+        setLaunchPricingAvailable(false);
+        toast.error(
+          "Não encontramos a tabela de configuração de preços. Execute as migrações do Supabase e tente novamente."
+        );
+      } else {
+        toast.error("Não foi possível atualizar a configuração de preços.");
+      }
+    } finally {
+      setLaunchPricingSaving(false);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setLoading(true);
+    await Promise.allSettled([fetchDashboardData(), loadRegistrationSettings()]);
+    toast.success("Dados atualizados.");
+  };
+
   const handleConfigInputChange = useCallback(
     (field: "url" | "anonKey") => (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
@@ -333,14 +443,7 @@ const AdminDashboard = () => {
         setIsSavingConfig(false);
       }
     },
-    [
-      configValues.anonKey,
-      configValues.url,
-      getSupabaseConfigSnapshot,
-      persistSupabaseBrowserConfig,
-      refreshSupabaseClient,
-      toast,
-    ]
+    [configValues.anonKey, configValues.url]
   );
 
   const handleClearConfig = useCallback(() => {
@@ -355,7 +458,7 @@ const AdminDashboard = () => {
       console.error("Falha ao limpar credenciais salvas:", error);
       toast.error("Não foi possível limpar as credenciais salvas neste navegador.");
     }
-  }, [clearSupabaseBrowserConfig, getSupabaseConfigSnapshot, refreshSupabaseClient, toast]);
+  }, []);
 
   const configSourceLabel = useMemo(() => {
     switch (configSource) {
@@ -438,9 +541,10 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (authChecked) {
+      void loadRegistrationSettings();
       void fetchDashboardData();
     }
-  }, [authChecked, fetchDashboardData]);
+  }, [authChecked, fetchDashboardData, loadRegistrationSettings]);
 
   const updateStatus = async (id: string, status: RegistrationStatus) => {
     try {
@@ -589,9 +693,85 @@ const AdminDashboard = () => {
       window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Erro ao gerar link do comprovante:", error);
-      toast.error("Não foi possível abrir o comprovante. Tente novamente.");
+      if (isStoragePermissionError(error)) {
+        toast.error(PAYMENT_PROOF_PERMISSION_MESSAGE);
+      } else {
+        toast.error("Não foi possível abrir o comprovante. Tente novamente.");
+      }
     } finally {
       setViewingProofId(null);
+    }
+  };
+
+  const handleRemovePaymentProof = async (registration: Registration) => {
+    if (!registration.payment_proof_path) {
+      toast.error("Nenhum comprovante disponível para remover.");
+      return;
+    }
+
+    const confirmDeletion = window.confirm(
+      "Deseja realmente remover o comprovante? O expositor poderá enviar outro pelo portal."
+    );
+
+    if (!confirmDeletion) {
+      return;
+    }
+
+    setProofDeletingId(registration.id);
+
+    try {
+      const targetPath = registration.payment_proof_path;
+
+      const { error: storageError } = await supabase.storage
+        .from("payment-proofs")
+        .remove([targetPath]);
+
+      if (storageError && !/not found/i.test(storageError.message ?? "")) {
+        throw storageError;
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const { error: updateError } = await supabase
+        .from("exhibitor_registrations")
+        .update({
+          payment_proof_path: null,
+          payment_proof_uploaded_at: null,
+          updated_at: nowIso,
+        } as never)
+        .eq("id", registration.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setRegistrations((current) =>
+        current.map((item) =>
+          item.id === registration.id
+            ? {
+                ...item,
+                payment_proof_path: null,
+                payment_proof_uploaded_at: null,
+                updated_at: nowIso,
+              }
+            : item
+        )
+      );
+
+  toast.success("Comprovante removido. Solicite ao expositor um novo envio pelo portal.");
+    } catch (error) {
+      console.error("Erro ao remover comprovante:", error);
+      if (
+        isPostgrestError(error) && (error.code === "42501" || error.code === "42P01")
+      ) {
+        toast.error(PAYMENT_PROOF_PERMISSION_MESSAGE);
+      } else if (isStoragePermissionError(error)) {
+        toast.error(PAYMENT_PROOF_PERMISSION_MESSAGE);
+      } else {
+        toast.error("Não foi possível remover o comprovante. Tente novamente.");
+      }
+    } finally {
+      setProofDeletingId(null);
     }
   };
 
@@ -600,60 +780,55 @@ const AdminDashboard = () => {
     navigate("/admin");
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      "CPF/CNPJ",
-      "Empresa",
-      "Responsável",
-      "Telefone",
-      "Porte",
-      "Segmento",
-      "Stands",
-      "Forma de pagamento",
-      "Valor total (R$)",
-      "Status",
-      "Boleto enviado?",
-      "Comprovante enviado?",
-      "Data do comprovante",
-      "Data de cadastro",
+  const exportToXLSX = () => {
+    const registrationsSheetData = filteredRegistrations.map((reg) => ({
+      "Data do cadastro": new Date(reg.created_at).toLocaleString("pt-BR"),
+      Empresa: reg.company_name,
+      Responsável: reg.responsible_name,
+      "CPF/CNPJ": reg.cpf_cnpj,
+      Telefone: reg.phone,
+      Porte: reg.company_size,
+      Segmento: reg.business_segment,
+      Stands: reg.stands_quantity,
+      "Forma de pagamento": getPaymentMethodDisplayLabel(reg.payment_method),
+      "Valor total (R$)": formatCurrencyBRL(reg.total_amount),
+      Status: reg.status,
+      "Comprovante enviado": reg.payment_proof_path
+        ? reg.payment_proof_uploaded_at
+          ? new Date(reg.payment_proof_uploaded_at).toLocaleString("pt-BR")
+          : "Anexado"
+        : "Pendente",
+    }));
+
+    const workbook = XLSXUtils.book_new();
+    const registrationsSheet = XLSXUtils.json_to_sheet(registrationsSheetData);
+    registrationsSheet["!cols"] = [
+      { wch: 20 },
+      { wch: 35 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 25 },
+      { wch: 8 },
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 22 },
     ];
 
-    const rows = filteredRegistrations.map((reg) => [
-      reg.cpf_cnpj,
-      reg.company_name,
-      reg.responsible_name,
-      reg.phone,
-      reg.company_size,
-      reg.business_segment,
-      reg.stands_quantity,
-      reg.payment_method,
-      formatCurrencyBRL(reg.total_amount),
-      reg.status,
-      reg.boleto_path ? "Sim" : "Não",
-      reg.payment_proof_path ? "Sim" : "Não",
-      reg.payment_proof_uploaded_at
-        ? new Date(reg.payment_proof_uploaded_at).toLocaleString("pt-BR")
-        : "",
-      new Date(reg.created_at).toLocaleDateString("pt-BR"),
+    const summarySheet = XLSXUtils.aoa_to_sheet([
+      ["Indicador", "Valor"],
+      ["Cadastros filtrados", filteredSummary.count],
+      ["Comprovantes recebidos", filteredSummary.proofs],
+      ["Valor previsto na visão", formatCurrencyBRL(filteredSummary.total)],
+      ["Exportado em", new Date().toLocaleString("pt-BR")],
     ]);
+    summarySheet["!cols"] = [{ wch: 28 }, { wch: 24 }];
 
-    const csv = [
-      headers.join(","),
-      ...rows.map((row) =>
-        row
-          .map((cell) => {
-            const value = `${cell ?? ""}`.replace(/"/g, '""');
-            return `"${value}"`;
-          })
-          .join(",")
-      ),
-    ].join("\n");
+    XLSXUtils.book_append_sheet(workbook, registrationsSheet, "Cadastros");
+    XLSXUtils.book_append_sheet(workbook, summarySheet, "Resumo");
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `cadastros_feira_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
+    writeXlsxFile(workbook, `cadastros_feira_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const isConfigFormValid = configValues.url.trim().length > 0 && configValues.anonKey.trim().length > 0;
@@ -735,15 +910,27 @@ const AdminDashboard = () => {
                 <p className="text-sm text-primary-foreground/80">8ª Feira do Empreendedor</p>
               </div>
             </div>
-            <Button
-              onClick={handleLogout}
-              variant="secondary"
-              size="sm"
-              className="flex items-center gap-2"
-            >
-              <LogOut size={16} />
-              Sair
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleManualRefresh}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                className="flex items-center gap-2 border-primary/30 text-primary"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw size={16} />}
+                Atualizar
+              </Button>
+              <Button
+                onClick={handleLogout}
+                variant="secondary"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <LogOut size={16} />
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -786,6 +973,41 @@ const AdminDashboard = () => {
             </div>
             <div className="text-sm text-muted-foreground">Valor previsto em vendas</div>
           </div>
+        </div>
+
+        <div className="bg-card rounded-xl shadow-elegant p-6 mb-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-primary">Opções de pagamento</h2>
+              <p className="text-sm text-muted-foreground">
+                Controle a disponibilidade do valor promocional de R$ 700,00 para um stand.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={launchPricingEnabled}
+                onCheckedChange={(checked) => {
+                  void handleLaunchPricingToggle(checked);
+                }}
+                disabled={launchPricingLoading || launchPricingSaving || !launchPricingAvailable}
+              />
+              <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                {launchPricingLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                <span>
+                  {launchPricingEnabled ? "Promoção liberada" : "Promoção encerrada"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {!launchPricingAvailable
+              ? "A tabela de configuração de preços ainda não foi provisionada. Execute as migrações do Supabase e recarregue o painel para habilitar o controle."
+              : launchPricingEnabled
+                ? "Expositores visualizam as opções de R$ 700,00 ou R$ 850,00 para um stand e R$ 750,00 para múltiplos stands."
+                : "Novos cadastros verão apenas R$ 850,00 para um stand; pedidos com dois ou mais stands permanecem em R$ 750,00."}
+          </p>
         </div>
 
         <div className="bg-card rounded-xl shadow-elegant p-6 mb-6">
@@ -837,9 +1059,9 @@ const AdminDashboard = () => {
               </SelectContent>
             </Select>
 
-            <Button onClick={exportToCSV} variant="outline" className="flex items-center gap-2">
+            <Button onClick={exportToXLSX} variant="outline" className="flex items-center gap-2">
               <Download size={16} />
-              Exportar CSV
+              Exportar XLSX
             </Button>
           </div>
           <div className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
@@ -901,7 +1123,7 @@ const AdminDashboard = () => {
                       <TableCell>{registration.company_size}</TableCell>
                       <TableCell>{registration.business_segment}</TableCell>
                       <TableCell>{registration.stands_quantity}</TableCell>
-                      <TableCell>{registration.payment_method}</TableCell>
+                      <TableCell>{getPaymentMethodDisplayLabel(registration.payment_method)}</TableCell>
                       <TableCell>{formatCurrencyBRL(registration.total_amount)}</TableCell>
                       <TableCell>
                         <span
@@ -975,14 +1197,14 @@ const AdminDashboard = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {registration.payment_proof_path ? (
-                          <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
                               className="justify-start gap-2 text-primary"
                               onClick={() => handleViewPaymentProof(registration)}
-                              disabled={viewingProofId === registration.id}
+                              disabled={!registration.payment_proof_path || viewingProofId === registration.id}
                             >
                               {viewingProofId === registration.id ? (
                                 <>
@@ -996,42 +1218,75 @@ const AdminDashboard = () => {
                                 </>
                               )}
                             </Button>
-                            {registration.payment_proof_uploaded_at && (
-                              <span className="text-[11px] text-muted-foreground">
-                                Enviado em {new Date(registration.payment_proof_uploaded_at).toLocaleString("pt-BR")}
-                              </span>
-                            )}
+
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="justify-start gap-2"
+                              onClick={() => handleRemovePaymentProof(registration)}
+                              disabled={!registration.payment_proof_path || proofDeletingId === registration.id}
+                            >
+                              {proofDeletingId === registration.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Removendo...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="h-4 w-4" />
+                                  Remover comprovante
+                                </>
+                              )}
+                            </Button>
                           </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Nenhum comprovante enviado</span>
-                        )}
+
+                          {registration.payment_proof_path && registration.payment_proof_uploaded_at ? (
+                            <span className="text-[11px] text-muted-foreground">
+                              Último envio em {new Date(registration.payment_proof_uploaded_at).toLocaleString("pt-BR")}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Nenhum comprovante enviado</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {new Date(registration.created_at).toLocaleDateString("pt-BR")}
                       </TableCell>
                       <TableCell>
-                        <Select
-                          value={registration.status}
-                          onValueChange={(value) => {
-                            if (isRegistrationStatus(value)) {
-                              updateStatus(registration.id, value);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Pendente">Pendente</SelectItem>
-                            <SelectItem value="Aguardando pagamento">
-                              Aguardando pagamento
-                            </SelectItem>
-                            <SelectItem value="Participação confirmada">
-                              Participação confirmada
-                            </SelectItem>
-                            <SelectItem value="Cancelado">Cancelado</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex flex-col gap-2">
+                          <Select
+                            value={registration.status}
+                            onValueChange={(value) => {
+                              if (isRegistrationStatus(value)) {
+                                updateStatus(registration.id, value);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Pendente">Pendente</SelectItem>
+                              <SelectItem value="Aguardando pagamento">
+                                Aguardando pagamento
+                              </SelectItem>
+                              <SelectItem value="Participação confirmada">
+                                Participação confirmada
+                              </SelectItem>
+                              <SelectItem value="Cancelado">Cancelado</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {registration.payment_proof_path && registration.payment_proof_uploaded_at ? (
+                            <span className="text-[11px] text-muted-foreground">
+                              Último envio em {new Date(registration.payment_proof_uploaded_at).toLocaleString("pt-BR")}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">
+                              Nenhum comprovante anexado ainda
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

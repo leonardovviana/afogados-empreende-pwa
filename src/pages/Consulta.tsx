@@ -14,6 +14,7 @@ import {
     FileWarning,
     Loader2,
     Search,
+    Trash2,
     UploadCloud
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
@@ -43,7 +44,7 @@ const formatCpf = (digits: string) =>
 const formatCnpj = (digits: string) =>
   digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
 
-const MAX_PROOF_FILE_SIZE = 6 * 1024 * 1024; // 6MB
+const MAX_PROOF_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 const buildDocumentCandidates = (rawValue: string, normalized: string): string[] => {
   const values = new Set<string>();
@@ -73,6 +74,33 @@ const isPostgrestError = (error: unknown): error is PostgrestError =>
 
 const isMissingColumnError = (error: unknown): boolean =>
   isPostgrestError(error) && (error.code === "42703" || /column .* does not exist/i.test(error.message));
+
+const isStoragePermissionError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { statusCode?: number; status?: number; message?: string };
+  const status =
+    typeof candidate.statusCode === "number"
+      ? candidate.statusCode
+      : typeof candidate.status === "number"
+        ? candidate.status
+        : null;
+
+  if (status === 403) {
+    return true;
+  }
+
+  if (typeof candidate.message === "string") {
+    return /permission|auth/i.test(candidate.message);
+  }
+
+  return false;
+};
+
+const PAYMENT_PROOF_PERMISSION_MESSAGE =
+  "Não foi possível acessar o bucket de comprovantes. Execute as últimas migrações do Supabase (como 20251003171000_refresh_payment_proof_security.sql) e tente novamente.";
 
 const normalizeStatusKey = (value: string | null | undefined): string | null => {
   if (!value) return null;
@@ -124,6 +152,7 @@ const Consulta = () => {
   const [lastSearched, setLastSearched] = useState<string | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [viewingProof, setViewingProof] = useState(false);
+  const [deletingProof, setDeletingProof] = useState(false);
   const proofInputRef = useRef<HTMLInputElement | null>(null);
 
   const statusConfig = useMemo(
@@ -277,7 +306,7 @@ const Consulta = () => {
     }
 
     if (file.size > MAX_PROOF_FILE_SIZE) {
-      toast.error("Arquivo muito grande. Envie imagens de até 6MB.");
+      toast.error("Arquivo muito grande. Envie imagens de até 20MB.");
       return;
     }
 
@@ -304,7 +333,7 @@ const Consulta = () => {
           payment_proof_path: storedPath,
           payment_proof_uploaded_at: nowIso,
           updated_at: nowIso,
-        })
+        } as never)
         .eq("id", registration.id);
 
       if (updateError) {
@@ -324,7 +353,15 @@ const Consulta = () => {
       toast.success("Comprovante enviado com sucesso! Vamos validar o pagamento.");
     } catch (error) {
       console.error("Erro ao enviar comprovante:", error);
-      toast.error("Não foi possível enviar o comprovante. Tente novamente.");
+      if (
+        (isPostgrestError(error) &&
+          (error.code === "42501" || error.code === "42P01" || isMissingColumnError(error))) ||
+        isStoragePermissionError(error)
+      ) {
+        toast.error(PAYMENT_PROOF_PERMISSION_MESSAGE);
+      } else {
+        toast.error("Não foi possível enviar o comprovante. Tente novamente.");
+      }
     } finally {
       setUploadingProof(false);
       if (proofInputRef.current) {
@@ -352,9 +389,85 @@ const Consulta = () => {
       window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       console.error("Erro ao abrir comprovante:", error);
-      toast.error("Não foi possível abrir o comprovante. Tente novamente.");
+      if (isStoragePermissionError(error)) {
+        toast.error(PAYMENT_PROOF_PERMISSION_MESSAGE);
+      } else {
+        toast.error("Não foi possível abrir o comprovante. Tente novamente.");
+      }
     } finally {
       setViewingProof(false);
+    }
+  };
+
+  const handleDeletePaymentProof = async () => {
+    if (!registration?.payment_proof_path) {
+      toast.error("Nenhum comprovante enviado para remover.");
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      "Deseja realmente remover o comprovante enviado? Você poderá anexar outro em seguida."
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingProof(true);
+
+    try {
+      const targetPath = registration.payment_proof_path;
+
+      const { error: storageError } = await supabase.storage
+        .from("payment-proofs")
+        .remove([targetPath]);
+
+      if (storageError && !/not found/i.test(storageError.message ?? "")) {
+        throw storageError;
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const { error: updateError } = await supabase
+        .from("exhibitor_registrations")
+        .update({
+          payment_proof_path: null,
+          payment_proof_uploaded_at: null,
+          updated_at: nowIso,
+        } as never)
+        .eq("id", registration.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setRegistration((current) =>
+        current
+          ? {
+              ...current,
+              payment_proof_path: null,
+              payment_proof_uploaded_at: null,
+            }
+          : current
+      );
+
+      toast.success("Comprovante removido. Envie um novo arquivo quando estiver pronto.");
+    } catch (error) {
+      console.error("Erro ao remover comprovante:", error);
+      if (
+        (isPostgrestError(error) &&
+          (error.code === "42501" || error.code === "42P01" || isMissingColumnError(error))) ||
+        isStoragePermissionError(error)
+      ) {
+        toast.error(PAYMENT_PROOF_PERMISSION_MESSAGE);
+      } else {
+        toast.error("Não foi possível remover o comprovante. Tente novamente.");
+      }
+    } finally {
+      setDeletingProof(false);
+      if (proofInputRef.current) {
+        proofInputRef.current.value = "";
+      }
     }
   };
 
@@ -492,7 +605,7 @@ const Consulta = () => {
                               </p>
                             )}
                           </div>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 lg:flex-nowrap">
                             <input
                               ref={proofInputRef}
                               type="file"
@@ -507,7 +620,7 @@ const Consulta = () => {
                                   type="button"
                                   onClick={triggerProofSelection}
                                   disabled={uploadingProof}
-                                  className="inline-flex items-center gap-2 rounded-2xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light"
+                                  className="inline-flex w-full items-center gap-2 rounded-2xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light sm:w-auto"
                                 >
                                   {uploadingProof ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -517,16 +630,28 @@ const Consulta = () => {
                                   {uploadingProof ? "Enviando..." : "Enviar comprovante"}
                                 </Button>
                                 {registration.payment_proof_path ? (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={viewingProof}
-                                    onClick={handleViewPaymentProof}
-                                    className="inline-flex items-center gap-2 rounded-2xl border-primary/20 text-primary transition hover:bg-primary/5"
-                                  >
-                                    {viewingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                                    {viewingProof ? "Abrindo..." : "Ver comprovante"}
-                                  </Button>
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      disabled={viewingProof}
+                                      onClick={handleViewPaymentProof}
+                                      className="inline-flex w-full items-center gap-2 rounded-2xl border-primary/20 text-primary transition hover:bg-primary/5 sm:w-auto"
+                                    >
+                                      {viewingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                      {viewingProof ? "Abrindo..." : "Ver comprovante"}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      disabled={deletingProof}
+                                      onClick={handleDeletePaymentProof}
+                                      className="inline-flex w-full items-center gap-2 rounded-2xl sm:w-auto"
+                                    >
+                                      {deletingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                      {deletingProof ? "Removendo..." : "Remover comprovante"}
+                                    </Button>
+                                  </>
                                 ) : null}
                               </>
                             ) : registration.payment_proof_path ? (
@@ -535,7 +660,7 @@ const Consulta = () => {
                                 variant="outline"
                                 disabled={viewingProof}
                                 onClick={handleViewPaymentProof}
-                                className="inline-flex items-center gap-2 rounded-2xl border-primary/20 text-primary transition hover:bg-primary/5"
+                                className="inline-flex w-full items-center gap-2 rounded-2xl border-primary/20 text-primary transition hover:bg-primary/5 sm:w-auto"
                               >
                                 {viewingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                 {viewingProof ? "Abrindo..." : "Ver comprovante"}
@@ -549,7 +674,7 @@ const Consulta = () => {
                         </div>
                         <p className="mt-3 text-[11px] text-muted-foreground">
                           {registration.status === "Aguardando pagamento"
-                            ? "Formatos aceitos: JPG, PNG ou HEIC. Tamanho máximo de 6MB."
+                            ? "Formatos aceitos: JPG, PNG ou HEIC. Tamanho máximo de 20MB."
                             : "Envio de comprovante disponível somente enquanto o status estiver em Aguardando pagamento."}
                         </p>
                       </div>
