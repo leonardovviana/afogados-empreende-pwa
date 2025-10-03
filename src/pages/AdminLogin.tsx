@@ -1,4 +1,4 @@
-import icon from "@/assets/icon.png";
+import logoShield from "@/assets/logoescudo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -218,7 +218,11 @@ const AdminLogin = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-elegant p-8 animate-scale-in">
         <div className="text-center mb-8">
-          <img src={icon} alt="Logo" className="w-16 h-16 mx-auto mb-4 rounded-2xl" />
+          <img
+            src={logoShield}
+            alt="Feira do Empreendedor"
+            className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/90 p-1 shadow-md object-contain"
+          />
           <h1 className="text-2xl font-bold text-card-foreground mb-2 font-['Poppins']">
             Painel Administrativo
           </h1>

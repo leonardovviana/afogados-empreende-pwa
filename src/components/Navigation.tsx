@@ -57,23 +57,22 @@ const Navigation = () => {
                 className="h-9 sm:h-10 md:h-12 w-auto object-contain"
                 draggable={false}
               />
-              <span className="hidden lg:inline">8ª Feira do Empreendedor</span>
             </Link>
 
-            <div className="hidden xl:flex items-center gap-1.5 md:gap-2 pl-2 md:pl-2.5 border-l border-primary/15">
+            <div className="hidden xl:flex items-center gap-1 md:gap-1.5 pl-1.5 border-l border-primary/15">
               <span className="text-[10px] md:text-xs font-semibold uppercase tracking-[0.28em] text-primary/60">
                 Realização
               </span>
-              <div className="flex items-center gap-1.5 md:gap-2">
+              <div className="flex items-center gap-1.5 md:gap-1.5">
                 {realizationLogos.map((logo) => (
                   <div
                     key={logo.alt}
-                    className="flex h-10 md:h-12 items-center justify-center rounded-xl border border-primary/10 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-md"
+                    className="flex h-9 md:h-11 items-center justify-center rounded-xl border border-primary/10 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-md"
                   >
                     <img
                       src={logo.src}
                       alt={logo.alt}
-                      className="h-6 md:h-8 w-auto object-contain"
+                      className="h-5 md:h-7 w-auto object-contain"
                       draggable={false}
                     />
                   </div>

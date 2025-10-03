@@ -593,7 +593,7 @@ const Consulta = () => {
                       )}
 
                       <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 text-sm text-muted-foreground">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                           <div className="space-y-1">
                             <h3 className="text-sm font-semibold text-primary">Envie o comprovante de pagamento</h3>
                             <p className="text-xs text-muted-foreground">
@@ -605,7 +605,7 @@ const Consulta = () => {
                               </p>
                             )}
                           </div>
-                          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 lg:flex-nowrap">
+                          <div className="flex flex-col gap-2 sm:items-stretch sm:gap-3">
                             <input
                               ref={proofInputRef}
                               type="file"
@@ -620,7 +620,7 @@ const Consulta = () => {
                                   type="button"
                                   onClick={triggerProofSelection}
                                   disabled={uploadingProof}
-                                  className="inline-flex w-full items-center gap-2 rounded-2xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light sm:w-auto"
+                                  className="inline-flex w-full items-center gap-2 rounded-2xl bg-secondary px-4 py-3 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light"
                                 >
                                   {uploadingProof ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -636,7 +636,7 @@ const Consulta = () => {
                                       variant="outline"
                                       disabled={viewingProof}
                                       onClick={handleViewPaymentProof}
-                                      className="inline-flex w-full items-center gap-2 rounded-2xl border-primary/20 text-primary transition hover:bg-primary/5 sm:w-auto"
+                                      className="inline-flex w-full items-center gap-2 rounded-2xl border-primary/20 text-primary transition hover:bg-primary/5"
                                     >
                                       {viewingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                                       {viewingProof ? "Abrindo..." : "Ver comprovante"}
@@ -646,7 +646,7 @@ const Consulta = () => {
                                       variant="destructive"
                                       disabled={deletingProof}
                                       onClick={handleDeletePaymentProof}
-                                      className="inline-flex w-full items-center gap-2 rounded-2xl sm:w-auto"
+                                      className="inline-flex w-full items-center gap-2 rounded-2xl"
                                     >
                                       {deletingProof ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                       {deletingProof ? "Removendo..." : "Remover comprovante"}
