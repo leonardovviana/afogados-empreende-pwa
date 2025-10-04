@@ -1024,8 +1024,8 @@ const AdminDashboard = () => {
             {!launchPricingAvailable
               ? "A tabela de configuração de preços ainda não foi provisionada. Execute as migrações do Supabase e recarregue o painel para habilitar o controle."
               : launchPricingEnabled
-                ? "Expositores visualizam as opções de R$ 700,00 ou R$ 850,00 para um stand e R$ 750,00 para múltiplos stands."
-                : "Novos cadastros verão apenas R$ 850,00 para um stand; pedidos com dois ou mais stands permanecem em R$ 750,00."}
+                ? "Expositores visualizam o valor promocional de R$ 700,00 por stand, inclusive para pedidos com dois ou mais stands; a opção de R$ 850,00 segue disponível apenas para um stand."
+                : "Novos cadastros verão apenas R$ 850,00 para um stand, enquanto pedidos com dois ou mais stands permanecem em R$ 750,00."}
           </p>
         </div>
 

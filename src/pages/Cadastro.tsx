@@ -228,11 +228,15 @@ const formSchema = z.object({
 
   const standsCount = Number.parseInt(data.stands_quantity, 10);
 
-  if (standsCount >= 2 && data.payment_method !== "R$ 750,00 Dois ou mais stands") {
+  if (
+    standsCount >= 2 &&
+    data.payment_method !== "R$ 750,00 Dois ou mais stands" &&
+    data.payment_method !== "R$ 700,00 No lançamento"
+  ) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["payment_method"],
-      message: "Para dois ou mais stands, selecione o valor de R$ 750,00.",
+      message: "Para dois ou mais stands, selecione um dos valores permitidos.",
     });
   }
 
@@ -351,6 +355,16 @@ const Cadastro = () => {
 
   const availablePaymentOptions = useMemo<PaymentOption[]>(() => {
     if (standsQuantity >= 2) {
+      if (launchPricingEnabled) {
+        return [
+          {
+            value: "R$ 700,00 No lançamento",
+            label: "R$ 700,00",
+            description: "Valor promocional por stand para pedidos com dois ou mais stands.",
+          },
+        ];
+      }
+
       return [
         {
           value: "R$ 750,00 Dois ou mais stands",
@@ -380,8 +394,12 @@ const Cadastro = () => {
 
   useEffect(() => {
     if (standsQuantity >= 2) {
-      if (paymentMethod !== "R$ 750,00 Dois ou mais stands") {
-        form.setValue("payment_method", "R$ 750,00 Dois ou mais stands", { shouldValidate: true });
+      const targetMethod = launchPricingEnabled
+        ? "R$ 700,00 No lançamento"
+        : "R$ 750,00 Dois ou mais stands";
+
+      if (paymentMethod !== targetMethod) {
+        form.setValue("payment_method", targetMethod, { shouldValidate: true });
       }
       return;
     }
@@ -777,7 +795,9 @@ const Cadastro = () => {
                               </p>
                             ) : standsQuantity >= 2 ? (
                               <p className="text-xs text-muted-foreground mt-1">
-                                Para dois ou mais stands o valor é fixo: R$ 750,00 por stand.
+                                {launchPricingEnabled
+                                  ? "Compras com dois ou mais stands seguem o valor promocional de R$ 700,00 por stand."
+                                  : "Para dois ou mais stands o valor é fixo: R$ 750,00 por stand."}
                               </p>
                             ) : !launchPricingEnabled ? (
                               <p className="text-xs text-muted-foreground mt-1">

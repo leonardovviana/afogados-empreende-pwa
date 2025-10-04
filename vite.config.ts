@@ -23,6 +23,7 @@ export default defineConfig(() => ({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        importScripts: ["pwa-push-handler.js"],
       },
       devOptions: {
         enabled: true,
