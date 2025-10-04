@@ -27,8 +27,8 @@ const AdminConfirm = () => {
         typeof error === "string"
           ? error
           : error instanceof Error
-          ? error.message
-          : defaultMessage;
+            ? error.message
+            : defaultMessage;
 
       const normalized = message.toLowerCase();
 
@@ -83,7 +83,7 @@ const AdminConfirm = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-elegant p-8 text-center space-y-6 animate-scale-in">
-  <img src={logoShield} alt="Feira do Empreendedor" className="w-16 h-16 mx-auto rounded-2xl" />
+        <img src={logoShield} alt="Feira do Empreendedor" className="w-16 h-16 mx-auto rounded-2xl" />
 
         {status === "processing" && (
           <div className="space-y-3">

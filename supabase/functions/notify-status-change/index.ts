@@ -136,6 +136,7 @@ serve(async (req) => {
   }
 
   if (!subscriptions || subscriptions.length === 0) {
+    console.info("[notify-status-change] Nenhuma assinatura para", registrationId);
     return new Response(JSON.stringify({ delivered: 0, skipped: 0, message: "No active subscriptions" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -184,17 +185,28 @@ serve(async (req) => {
             icon: "/icon-192.png",
           },
         }));
+        console.info("[notify-status-change] Notification sent", {
+          registrationId,
+          endpoint: subscription.endpoint,
+          status,
+        });
         delivered += 1;
       } catch (err) {
         failed += 1;
         const statusCode = err?.statusCode ?? err?.status ?? err?.response?.status;
-        console.error("[notify-status-change] Failed to send notification", err);
+        console.error("[notify-status-change] Failed to send notification", {
+          endpoint: subscription.endpoint,
+          statusCode,
+          error: err,
+        });
         if (statusCode === 404 || statusCode === 410) {
           await markSubscriptionAsRevoked(subscription.id);
         }
       }
     })
   );
+
+  console.info("[notify-status-change] Finished", { delivered, failed, registrationId });
 
   return new Response(JSON.stringify({ delivered, failed }), {
     status: 200,

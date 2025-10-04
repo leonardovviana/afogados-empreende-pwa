@@ -3,6 +3,14 @@ import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import type { ExhibitorRegistrationRow } from "@/integrations/supabase/types";
 import { buildPaymentProofFilePath } from "@/lib/storage";
@@ -55,6 +63,20 @@ const formatCnpj = (digits: string) =>
   digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
 
 const MAX_PROOF_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+const slugify = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .toLowerCase();
+
+const buildBoletoFilename = (companyName: string | undefined) => {
+  const base = companyName?.trim() ? slugify(companyName.trim()) : "boleto";
+  return `${base || "boleto"}-${new Date().toISOString().slice(0, 10)}.pdf`;
+};
 
 const buildDocumentCandidates = (rawValue: string, normalized: string): string[] => {
   const values = new Set<string>();
@@ -170,21 +192,9 @@ const Consulta = () => {
   const [subscribingNotifications, setSubscribingNotifications] = useState(false);
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
+  const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
+  const [proofPreviewOpen, setProofPreviewOpen] = useState(false);
   const proofInputRef = useRef<HTMLInputElement | null>(null);
-
-  const openSignedUrl = (url: string, { download }: { download?: boolean } = {}) => {
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.rel = "noopener noreferrer";
-    anchor.target = "_blank";
-    if (download) {
-      anchor.download = "";
-    }
-
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-  };
 
   const statusConfig = useMemo(
     () => ({
@@ -348,7 +358,21 @@ const Consulta = () => {
         throw error ?? new Error("Não foi possível gerar o link do boleto.");
       }
 
-      openSignedUrl(data.signedUrl, { download: true });
+      const response = await fetch(data.signedUrl);
+      if (!response.ok) {
+        throw new Error("Não foi possível baixar o boleto. Tente novamente.");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = buildBoletoFilename(registration.company_name);
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
     } catch (error) {
       console.error("Erro ao gerar link do boleto:", error);
       toast.error("Não foi possível abrir o boleto. Tente novamente.");
@@ -456,7 +480,8 @@ const Consulta = () => {
         throw error ?? new Error("Não foi possível gerar o link do comprovante.");
       }
 
-  openSignedUrl(data.signedUrl);
+      setProofPreviewUrl(data.signedUrl);
+      setProofPreviewOpen(true);
     } catch (error) {
       console.error("Erro ao abrir comprovante:", error);
       if (isStoragePermissionError(error)) {
@@ -934,6 +959,47 @@ const Consulta = () => {
       </main>
 
       <Footer />
+      <Dialog
+        open={proofPreviewOpen}
+        onOpenChange={(open) => {
+          setProofPreviewOpen(open);
+          if (!open) {
+            setProofPreviewUrl(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Visualizar comprovante</DialogTitle>
+            <DialogDescription>
+              O comprovante é carregado temporariamente e expira em alguns minutos por segurança.
+            </DialogDescription>
+          </DialogHeader>
+          {proofPreviewUrl ? (
+            <div className="max-h-[70vh] overflow-auto rounded-xl border bg-muted/20 p-2">
+              <img
+                src={proofPreviewUrl}
+                alt="Comprovante de pagamento"
+                className="mx-auto h-auto max-h-[65vh] w-full rounded-lg object-contain"
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Carregando comprovante...</p>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setProofPreviewOpen(false);
+                setProofPreviewUrl(null);
+              }}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

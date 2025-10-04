@@ -154,7 +154,7 @@ export const subscribeForRegistrationUpdates = async ({
         company_name: companyName,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "registration_id,endpoint" }
+      { onConflict: "registration_id,endpoint,cpf_hash" }
     );
 
   if (error) {
