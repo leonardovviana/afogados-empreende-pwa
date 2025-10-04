@@ -37,9 +37,18 @@ Crie um arquivo `.env` na raiz com as credenciais do seu projeto Supabase:
 ```env
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
+VITE_WEB_PUSH_PUBLIC_KEY=...
 ```
 
 Esses valores podem ser encontrados no painel **Project Settings › API** do Supabase. Após configurar, reinicie o servidor de desenvolvimento.
+
+Para gerar a chave pública VAPID (`VITE_WEB_PUSH_PUBLIC_KEY`) e a respectiva chave privada, execute no seu terminal (com o pacote `web-push` instalado globalmente ou via npx):
+
+```cmd
+npx web-push generate-vapid-keys
+```
+
+Armazene a chave pública no arquivo `.env` e mantenha a chave privada em um local seguro (por exemplo, nas variáveis secretas do Supabase ou Netlify) para uso pelo worker responsável por disparar as notificações. Para o worker, configure também as variáveis `VAPID_PRIVATE_KEY`, `VAPID_CONTACT_EMAIL` (opcional) e `SUPABASE_SERVICE_ROLE_KEY` no ambiente de execução.
 
 ### Scripts úteis
 
@@ -49,6 +58,14 @@ Esses valores podem ser encontrados no painel **Project Settings › API** do Su
 | `npm run build`  | Gera a versão otimizada para produção             |
 | `npm run preview`| Servidor local para inspecionar o build gerado    |
 | `npm run lint`   | Executa verificação de estilo e padrões de código |
+| `npm run generate:icons` | Regenera os ícones PWA (192px e 512px) com padding seguro |
+
+## 🔔 Fluxo de notificações push
+
+1. Gere as chaves VAPID conforme descrito acima e defina `VITE_WEB_PUSH_PUBLIC_KEY` no `.env` (a chave privada será usada pelo serviço que envia as notificações).
+2. Execute as novas migrações do Supabase (veja a pasta `supabase/migrations`) para criar a tabela `web_push_subscriptions` e as políticas de acesso necessárias.
+3. Configure o worker/serviço responsável por observar mudanças na tabela `exhibitor_registrations` e enviar notificações push (ver função `supabase/functions/notify-status-change`). Defina as variáveis de ambiente `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e, opcionalmente, `VAPID_CONTACT_EMAIL` antes de publicar a função.
+4. Após o deploy, os usuários poderão consentir com os alertas diretamente na página de consulta e passam a receber avisos quando o status for atualizado.
 
 ## 📁 Estrutura destacada
 

@@ -83,6 +83,40 @@ export type RegistrationSettingsUpdate = Partial<
 	updated_at?: string;
 };
 
+export type PushSubscriptionStatus = "active" | "revoked";
+
+export interface WebPushSubscriptionRow {
+	id: string;
+	registration_id: string | null;
+	cpf_hash: string;
+	endpoint: string;
+	subscription: PushSubscriptionJSON;
+	status: PushSubscriptionStatus;
+	last_status: RegistrationStatus | null;
+	company_name: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+export type WebPushSubscriptionInsert = {
+	id?: string;
+	registration_id?: string | null;
+	cpf_hash: string;
+	endpoint: string;
+	subscription: PushSubscriptionJSON;
+	status?: PushSubscriptionStatus;
+	last_status?: RegistrationStatus | null;
+	company_name?: string | null;
+	created_at?: string;
+	updated_at?: string;
+};
+
+export type WebPushSubscriptionUpdate = Partial<
+	Omit<WebPushSubscriptionRow, "id" | "created_at" | "updated_at">
+> & {
+	updated_at?: string;
+};
+
 export interface AdminProfileRow {
 	id: string;
 	user_id: string;
@@ -110,6 +144,11 @@ export type Database = {
 				Row: ExhibitorRegistrationRow;
 				Insert: ExhibitorRegistrationInsert;
 				Update: ExhibitorRegistrationUpdate;
+			};
+			web_push_subscriptions: {
+				Row: WebPushSubscriptionRow;
+				Insert: WebPushSubscriptionInsert;
+				Update: WebPushSubscriptionUpdate;
 			};
 			admin_profiles: {
 				Row: AdminProfileRow;

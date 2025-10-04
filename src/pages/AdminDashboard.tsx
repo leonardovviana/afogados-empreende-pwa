@@ -569,6 +569,21 @@ const AdminDashboard = () => {
           item.id === id ? { ...item, status, updated_at: nowIso } : item
         )
       );
+
+      const registration = registrations.find((item) => item.id === id);
+      const companyName = registration?.company_name ?? "Cadastro";
+
+      void supabase.functions
+        .invoke("notify-status-change", {
+          body: {
+            registrationId: id,
+            status,
+            companyName,
+          },
+        })
+        .catch((invokeError) => {
+          console.error("Erro ao acionar notificações push:", invokeError);
+        });
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
       toast.error("Não foi possível atualizar o status. Tente novamente.");

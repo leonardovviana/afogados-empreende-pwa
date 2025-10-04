@@ -8,16 +8,26 @@ import type { ExhibitorRegistrationRow } from "@/integrations/supabase/types";
 import { buildPaymentProofFilePath } from "@/lib/storage";
 import type { PostgrestError } from "@supabase/supabase-js";
 import {
-    BadgeCheck,
-    Clock3,
-    Download,
-    FileWarning,
-    Loader2,
-    Search,
-    Trash2,
-    UploadCloud
+  BadgeCheck,
+  Bell,
+  BellOff,
+  BellRing,
+  Clock3,
+  Download,
+  FileWarning,
+  Loader2,
+  Search,
+  Trash2,
+  UploadCloud
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  hasActiveSubscription,
+  isPushNotificationSupported,
+  requestBrowserNotificationPermission,
+  subscribeForRegistrationUpdates,
+  unsubscribeFromRegistrationUpdates
+} from "@/lib/notifications";
 import { toast } from "sonner";
 
 type RegistrationStatus =
@@ -153,6 +163,13 @@ const Consulta = () => {
   const [uploadingProof, setUploadingProof] = useState(false);
   const [viewingProof, setViewingProof] = useState(false);
   const [deletingProof, setDeletingProof] = useState(false);
+  const [searchedDigits, setSearchedDigits] = useState<string | null>(null);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const [subscribingNotifications, setSubscribingNotifications] = useState(false);
+  const [subscriptionActive, setSubscriptionActive] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const proofInputRef = useRef<HTMLInputElement | null>(null);
 
   const openSignedUrl = (url: string, { download }: { download?: boolean } = {}) => {
@@ -202,6 +219,44 @@ const Consulta = () => {
     }),
     []
   );
+
+  useEffect(() => {
+    setPushSupported(isPushNotificationSupported());
+    if (typeof Notification !== "undefined") {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!registration || !searchedDigits || !pushSupported) {
+      setSubscriptionActive(false);
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      try {
+        setCheckingSubscription(true);
+        const active = await hasActiveSubscription(registration.id, searchedDigits);
+        if (mounted) {
+          setSubscriptionActive(active);
+        }
+      } catch (error) {
+        console.error("Erro ao checar assinatura de notificações:", error);
+        if (mounted) {
+          setSubscriptionActive(false);
+        }
+      } finally {
+        if (mounted) {
+          setCheckingSubscription(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [registration, searchedDigits, pushSupported]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,6 +326,7 @@ const Consulta = () => {
 
       setRegistration(mapRowToRegistration(matchedRow));
       setLastSearched(trimmedDoc);
+      setSearchedDigits(digits);
     } catch (error) {
       console.error("Erro ao buscar cadastro:", error);
       toast.error("Erro ao buscar cadastro. Tente novamente.");
@@ -485,6 +541,73 @@ const Consulta = () => {
     }
   };
 
+  const promptNotificationPermission = async (): Promise<NotificationPermission> => {
+    try {
+      const permission = await requestBrowserNotificationPermission();
+      setNotificationPermission(permission);
+      if (permission === "denied") {
+        setPushError(
+          "Permita notificações do navegador para receber alertas de novas atualizações. Você pode ajustar isso nas configurações do dispositivo."
+        );
+      }
+      return permission;
+    } catch (error) {
+      console.error("Erro ao solicitar permissão de notificação:", error);
+      setPushError("Não foi possível solicitar permissão de notificação.");
+      return "denied";
+    }
+  };
+
+  const handleSubscribeNotifications = async () => {
+    if (!registration || !searchedDigits) return;
+
+    setPushError(null);
+
+    if (!pushSupported) {
+      setPushError("Este dispositivo não suporta notificações push.");
+      return;
+    }
+
+    const permission = await promptNotificationPermission();
+    if (permission !== "granted") {
+      toast.error("Notificações bloqueadas. Ajuste as permissões do navegador para ativar.");
+      return;
+    }
+
+    try {
+      setSubscribingNotifications(true);
+      await subscribeForRegistrationUpdates({
+        registrationId: registration.id,
+        cpfDigits: searchedDigits,
+        status: registration.status,
+        companyName: registration.company_name,
+      });
+      toast.success("Tudo pronto! Avisaremos quando o status mudar.");
+      setSubscriptionActive(true);
+    } catch (error) {
+      console.error("Erro ao inscrever notificações:", error);
+      setPushError("Não foi possível ativar as notificações agora. Tente novamente em instantes.");
+    } finally {
+      setSubscribingNotifications(false);
+    }
+  };
+
+  const handleUnsubscribeNotifications = async () => {
+    if (!registration || !searchedDigits) return;
+
+    try {
+      setSubscribingNotifications(true);
+      await unsubscribeFromRegistrationUpdates(registration.id, searchedDigits);
+      toast.success("Você não receberá mais alertas para este cadastro.");
+      setSubscriptionActive(false);
+    } catch (error) {
+      console.error("Erro ao cancelar notificações:", error);
+      setPushError("Não foi possível cancelar as notificações. Tente novamente.");
+    } finally {
+      setSubscribingNotifications(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden">
       <div className="fixed inset-0 bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 -z-10"></div>
@@ -605,6 +728,70 @@ const Consulta = () => {
                             : "No momento, não há boleto disponível para este status."}
                         </div>
                       )}
+
+                      <div className="rounded-2xl border border-primary/10 bg-white/70 p-4 text-sm text-muted-foreground">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-semibold text-primary flex items-center gap-2">
+                              {subscriptionActive ? <BellRing className="h-4 w-4 text-primary" /> : <Bell className="h-4 w-4 text-primary" />}
+                              Receba avisos ao mudar de status
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              Ative as notificações para ser alertado assim que houver atualizações no cadastro.
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <Button
+                              type="button"
+                              disabled={
+                                subscribingNotifications ||
+                                checkingSubscription ||
+                                !pushSupported ||
+                                notificationPermission === "denied" ||
+                                !searchedDigits
+                              }
+                              onClick={subscriptionActive ? handleUnsubscribeNotifications : handleSubscribeNotifications}
+                              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 sm:w-auto"
+                            >
+                              {subscribingNotifications || checkingSubscription ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : subscriptionActive ? (
+                                <BellOff className="h-4 w-4" />
+                              ) : (
+                                <Bell className="h-4 w-4" />
+                              )}
+                              {checkingSubscription
+                                ? "Verificando..."
+                                : subscriptionActive
+                                  ? "Desativar alertas"
+                                  : notificationPermission === "denied"
+                                    ? "Notificações bloqueadas"
+                                    : "Receber notificações"}
+                            </Button>
+                            {notificationPermission === "denied" && (
+                              <button
+                                type="button"
+                                className="text-xs text-primary underline decoration-dotted"
+                                onClick={() => {
+                                  toast.info(
+                                    "Ajuste as permissões do site nas configurações do navegador para permitir notificações."
+                                  );
+                                }}
+                              >
+                                Como liberar notificações?
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {!pushSupported && (
+                          <p className="mt-2 text-xs text-destructive">
+                            O seu navegador não suporta notificações push. Use outro dispositivo para receber alertas.
+                          </p>
+                        )}
+                        {pushError && (
+                          <p className="mt-2 text-xs text-destructive">{pushError}</p>
+                        )}
+                      </div>
 
                       <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 text-sm text-muted-foreground">
                           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
