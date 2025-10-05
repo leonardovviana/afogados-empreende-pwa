@@ -1,5 +1,3 @@
-export const STAND_OPTIONS = ["1", "2", "3", "4", "5"] as const;
-
 // Desenvolvido por Leonardo Viana (leonardovviana) — 2025
 
 export const STAND_OPTIONS = ["1", "2", "3", "4", "5"] as const;
