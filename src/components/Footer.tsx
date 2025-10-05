@@ -21,13 +21,13 @@ const PARTNER_BRANDS = [
 
 const SOCIAL_LINKS = [
   {
-    href: "https://wa.me/5587999999999",
+    href: "https://wa.me/5587999781331",
     label: "WhatsApp",
     icon: MessageCircle,
     ariaLabel: "WhatsApp",
   },
   {
-    href: "https://instagram.com/feiradoempreendedor",
+    href: "https://instagram.com/sadetur_afdaingazeira",
     label: "Instagram",
     icon: Instagram,
     ariaLabel: "Instagram",
@@ -40,7 +40,7 @@ const Footer = () => {
   const socialLinks = useMemo(() => SOCIAL_LINKS, []);
 
   return (
-    <footer className="border-t border-primary/10 bg-gradient-to-b from-background via-primary/5 to-background text-muted-foreground">
+  <footer className="border-t border-primary/10 bg-gradient-to-b from-background via-primary/5 to-background text-muted-foreground" data-dev="leonardovviana">
       <div className="container mx-auto px-4 py-8 md:py-14 space-y-8 md:space-y-10">
         <div className="grid gap-8 md:grid-cols-[1.2fr_1fr] md:gap-10">
           <div className="space-y-4">
@@ -118,7 +118,7 @@ const Footer = () => {
         </div>
 
         <div className="flex flex-col items-center justify-between gap-3 border-t border-primary/10 pt-5 text-xs text-muted-foreground/80 md:flex-row md:pt-6 md:text-sm">
-          <p>© 2025 Feira do Empreendedor. Todos os direitos reservados.</p>
+          <p>© 2025 Feira do Empreendedor. Todos os direitos reservados.<span className="ml-2 select-none opacity-30" title="dev">LV</span></p>
           <Link to="/admin/dashboard" className="text-primary/70 underline transition hover:text-primary">
             Painel Administrativo
           </Link>

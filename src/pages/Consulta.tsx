@@ -1,41 +1,41 @@
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import type { ExhibitorRegistrationRow } from "@/integrations/supabase/types";
+import {
+    hasActiveSubscription,
+    isPushNotificationSupported,
+    requestBrowserNotificationPermission,
+    subscribeForRegistrationUpdates,
+    unsubscribeFromRegistrationUpdates
+} from "@/lib/notifications";
 import { buildPaymentProofFilePath } from "@/lib/storage";
 import type { PostgrestError } from "@supabase/supabase-js";
 import {
-  BadgeCheck,
-  Bell,
-  BellOff,
-  BellRing,
-  Clock3,
-  Download,
-  FileWarning,
-  Loader2,
-  Search,
-  Trash2,
-  UploadCloud
+    BadgeCheck,
+    Bell,
+    BellOff,
+    BellRing,
+    Clock3,
+    Download,
+    FileWarning,
+    Loader2,
+    Search,
+    Trash2,
+    UploadCloud
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  hasActiveSubscription,
-  isPushNotificationSupported,
-  requestBrowserNotificationPermission,
-  subscribeForRegistrationUpdates,
-  unsubscribeFromRegistrationUpdates
-} from "@/lib/notifications";
 import { toast } from "sonner";
 
 type RegistrationStatus =
@@ -198,19 +198,19 @@ const Consulta = () => {
 
   const statusConfig = useMemo(
     () => ({
-      "Pendente": {
-        color: "bg-amber-100 text-amber-700 border-amber-200",
+      Pendente: {
+        color: "bg-yellow-100 text-yellow-800 border-yellow-300",
         label: "Em análise",
         message:
           "Seu cadastro está em avaliação pela equipe. Você receberá novidades por e-mail cadastrado.",
-        icon: <Clock3 className="h-10 w-10 text-amber-500" />,
+        icon: <Clock3 className="h-10 w-10 text-yellow-500" />,
       },
       "Aguardando pagamento": {
-        color: "bg-secondary/15 text-secondary border-secondary/40",
+        color: "bg-orange-100 text-orange-700 border-orange-300",
         label: "Aguardando pagamento",
         message:
           "Seu cadastro foi aprovado! Efetive o pagamento dentro do prazo para garantir a reserva do estande.",
-        icon: <BadgeCheck className="h-10 w-10 text-secondary" />,
+        icon: <BadgeCheck className="h-10 w-10 text-orange-500" />,
       },
       "Participação confirmada": {
         color: "bg-emerald-100 text-emerald-700 border-emerald-300",
@@ -219,12 +219,12 @@ const Consulta = () => {
           "Tudo certo! Pagamento identificado e participação confirmada. Em breve enviaremos orientações finais.",
         icon: <BadgeCheck className="h-10 w-10 text-emerald-500" />,
       },
-      "Cancelado": {
-        color: "bg-destructive/10 text-destructive border-destructive/40",
+      Cancelado: {
+        color: "bg-red-100 text-red-700 border-red-300",
         label: "Cancelado",
         message:
           "Seu cadastro não foi aprovado nesta edição. Entre em contato com a coordenação para entender os motivos.",
-        icon: <FileWarning className="h-10 w-10 text-destructive" />,
+        icon: <FileWarning className="h-10 w-10 text-red-500" />,
       },
     }),
     []
@@ -718,7 +718,7 @@ const Consulta = () => {
                       </p>
 
                       {registration.status === "Aguardando pagamento" && (
-                        <div className="rounded-2xl border border-secondary/30 bg-secondary/10 p-4 text-center text-sm text-secondary">
+                        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-center text-sm text-orange-700">
                           Finalize o pagamento dentro do prazo informado para garantir seu espaço.
                           Assim que o comprovante for validado, o status mudará automaticamente.
                         </div>

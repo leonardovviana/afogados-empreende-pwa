@@ -136,12 +136,12 @@ const Manual = () => {
                   <div>
                     <p className="text-xs md:text-sm font-semibold text-card-foreground">Telefone / WhatsApp</p>
                     <a
-                      href="https://wa.me/5587999451234"
+                      href="https://wa.me/5587999781331"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm md:text-base text-primary hover:underline"
                     >
-                      (87) 99945-1234
+                      +55 (87) 99978-1331
                     </a>
                     <p className="text-xs md:text-sm text-muted-foreground">Atendimento de segunda a sexta, das 8h às 17h</p>
                   </div>
@@ -154,12 +154,12 @@ const Manual = () => {
                   <div>
                     <p className="text-xs md:text-sm font-semibold text-card-foreground">Instagram oficial</p>
                     <a
-                      href="https://instagram.com/afogadosempreende"
+                      href="https://instagram.com/sadetur_afdaingazeira"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm md:text-base text-primary hover:underline"
                     >
-                      @afogadosempreende
+                      @sadetur_afdaingazeira
                     </a>
                     <p className="text-xs md:text-sm text-muted-foreground">Acompanhe avisos, cronograma e bastidores</p>
                   </div>

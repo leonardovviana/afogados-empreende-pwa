@@ -10,17 +10,17 @@ import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { getMixedPhotoEntries } from "@/lib/photos";
 import {
-  Award,
-  Building2,
-  CalendarCheck,
-  ChevronLeft,
-  ChevronRight,
-  Handshake,
-  HeartHandshake,
-  Lightbulb,
-  Rocket,
-  TrendingUp,
-  Users,
+    Award,
+    Building2,
+    CalendarCheck,
+    ChevronLeft,
+    ChevronRight,
+    Handshake,
+    HeartHandshake,
+    Lightbulb,
+    Rocket,
+    TrendingUp,
+    Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";

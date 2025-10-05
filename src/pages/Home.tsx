@@ -8,18 +8,18 @@ import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { getMixedPhotoUrls } from "@/lib/photos";
 import {
-  ArrowRight,
-  Building2,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  ClipboardList,
-  Info,
-  Map,
-  MapPin,
-  Sparkles,
-  TrendingUp,
-  Users,
+    ArrowRight,
+    Building2,
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+    ClipboardList,
+    Info,
+    Map,
+    MapPin,
+    Sparkles,
+    TrendingUp,
+    Users,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";

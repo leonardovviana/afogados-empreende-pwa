@@ -3,35 +3,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-    clearSupabaseBrowserConfig,
-    getSupabaseConfigSnapshot,
-    isSupabaseConfigured,
-    persistSupabaseBrowserConfig,
-    refreshSupabaseClient,
-    supabase,
+  clearSupabaseBrowserConfig,
+  getSupabaseConfigSnapshot,
+  isSupabaseConfigured,
+  persistSupabaseBrowserConfig,
+  refreshSupabaseClient,
+  supabase,
 } from "@/integrations/supabase/client";
 import type { AdminProfileRow, ExhibitorRegistrationRow } from "@/integrations/supabase/types";
 import { calculateTotalAmount, formatCurrencyBRL, getPaymentMethodDisplayLabel } from "@/lib/pricing";
 import {
-    RegistrationSettingsNotProvisionedError,
-    fetchRegistrationSettings,
-    upsertRegistrationSettings,
+  RegistrationSettingsNotProvisionedError,
+  fetchRegistrationSettings,
+  upsertRegistrationSettings,
 } from "@/lib/registration-settings";
 import { buildBoletoFilePath } from "@/lib/storage";
 import type { PostgrestError } from "@supabase/supabase-js";
