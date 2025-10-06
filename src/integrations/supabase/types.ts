@@ -5,7 +5,7 @@ export type RegistrationStatus =
 	| "Cancelado";
 
 export type PaymentMethod =
-	| "R$ 700,00 No lançamento"
+	| "R$ 700,00 Lançamento"
 	| "R$ 850,00 Após o lançamento"
 	| "R$ 750,00 Dois ou mais stands";
 

@@ -10,8 +10,8 @@ import type { ExhibitorRegistrationInsert } from "@/integrations/supabase/types"
 import {
     calculateTotalAmount,
     formatCurrencyBRL,
-    FORMATTED_PAYMENT_METHODS,
     STAND_OPTIONS,
+  PAYMENT_UNIT_PRICES,
     type FormattedPaymentMethod,
 } from "@/lib/pricing";
 import { fetchRegistrationSettings, RegistrationSettingsNotProvisionedError } from "@/lib/registration-settings";
@@ -181,73 +181,53 @@ const hasExistingRegistration = async (
   return Boolean(normalizedMatch);
 };
 
-const formSchema = z.object({
-  cpf_cnpj: z.string().superRefine((value, ctx) => {
-    const error = getDocumentValidationError(value);
-    if (error) {
+const formSchema = z
+  .object({
+    cpf_cnpj: z.string().superRefine((value, ctx) => {
+      const error = getDocumentValidationError(value);
+      if (error) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: error,
+        });
+      }
+    }),
+    company_name: z.string().min(2, "Nome da empresa é obrigatório").max(200),
+    responsible_name: z.string().min(3, "Nome completo é obrigatório").max(200),
+    phone: z.string().min(10, "Telefone com DDD é obrigatório").max(15),
+    company_size: z.enum(["MEI", "ME", "EPP", "Médio", "Grande", "Autônomo informal"]),
+    business_segment: z.enum([
+      "Alimentação",
+      "Moda e Vestuário",
+      "Beleza e Estética",
+      "Educação",
+      "Construção Civil e Reforma",
+      "Saúde e Bem-Estar",
+      "Turismo e Hospedagem",
+      "Artesanato e Produtos Manuais",
+      "Marketing e Publicidade",
+      "Finanças e Seguros",
+      "Imobiliário",
+      "Eventos e Entretenimento",
+      "Pets e Animais de Estimação",
+      "Fitness e Atividades Físicas",
+      "Design e Arquitetura",
+      "Comércio de Veículos/Peças e Acessórios",
+      "Outros",
+    ]),
+    other_business_segment: z.string().max(200).optional(),
+    stands_quantity: z.enum(STAND_OPTIONS),
+  })
+  .superRefine((data, ctx) => {
+    const otherSegment = data.other_business_segment?.trim();
+    if (data.business_segment === "Outros" && (!otherSegment || otherSegment.length < 2)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: error,
+        path: ["other_business_segment"],
+        message: "Descreva o segmento quando selecionar Outros.",
       });
     }
-  }),
-  company_name: z.string().min(2, "Nome da empresa é obrigatório").max(200),
-  responsible_name: z.string().min(3, "Nome completo é obrigatório").max(200),
-  phone: z.string().min(10, "Telefone com DDD é obrigatório").max(15),
-  company_size: z.enum(["MEI", "ME", "EPP", "Médio", "Grande", "Autônomo informal"]),
-  business_segment: z.enum([
-    "Alimentação",
-    "Moda e Vestuário",
-    "Beleza e Estética",
-    "Educação",
-    "Construção Civil e Reforma",
-    "Saúde e Bem-Estar",
-    "Turismo e Hospedagem",
-    "Artesanato e Produtos Manuais",
-    "Marketing e Publicidade",
-    "Finanças e Seguros",
-    "Imobiliário",
-    "Eventos e Entretenimento",
-    "Pets e Animais de Estimação",
-    "Fitness e Atividades Físicas",
-    "Design e Arquitetura",
-    "Comércio de Veículos/Peças e Acessórios",
-    "Outros",
-  ]),
-  other_business_segment: z.string().max(200).optional(),
-  stands_quantity: z.enum(STAND_OPTIONS),
-  payment_method: z.enum(FORMATTED_PAYMENT_METHODS),
-}).superRefine((data, ctx) => {
-  if (data.business_segment === "Outros" && (!data.other_business_segment || data.other_business_segment.trim().length < 2)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["other_business_segment"],
-      message: "Descreva o segmento quando selecionar Outros.",
-    });
-  }
-
-  const standsCount = Number.parseInt(data.stands_quantity, 10);
-
-  if (
-    standsCount >= 2 &&
-    data.payment_method !== "R$ 750,00 Dois ou mais stands" &&
-    data.payment_method !== "R$ 700,00 No lançamento"
-  ) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["payment_method"],
-      message: "Para dois ou mais stands, selecione um dos valores permitidos.",
-    });
-  }
-
-  if (data.payment_method === "R$ 750,00 Dois ou mais stands" && standsCount <= 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["payment_method"],
-      message: "Selecione dois ou mais stands para essa opção de pagamento.",
-    });
-  }
-});
+  });
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -271,10 +251,15 @@ const businessSegments = [
   "Outros",
 ];
 
-type PaymentOption = {
-  value: FormattedPaymentMethod;
-  label: string;
-  description?: string;
+const getPaymentMethodFor = (
+  stands: number,
+  isLaunchPricingEnabled: boolean
+): FormattedPaymentMethod => {
+  if (stands >= 2) {
+    return isLaunchPricingEnabled ? "R$ 700,00 Lançamento" : "R$ 750,00 Dois ou mais stands";
+  }
+
+  return isLaunchPricingEnabled ? "R$ 700,00 Lançamento" : "R$ 850,00 Após o lançamento";
 };
 
 const Cadastro = () => {
@@ -295,7 +280,6 @@ const Cadastro = () => {
       business_segment: undefined,
       other_business_segment: "",
       stands_quantity: "1",
-      payment_method: undefined,
     },
   });
 
@@ -351,84 +335,32 @@ const Cadastro = () => {
   };
 
   const standsQuantity = Number.parseInt(form.watch("stands_quantity") ?? "1", 10) || 1;
-  const paymentMethod = form.watch("payment_method") as FormattedPaymentMethod | undefined;
 
-  const availablePaymentOptions = useMemo<PaymentOption[]>(() => {
-    if (standsQuantity >= 2) {
-      if (launchPricingEnabled) {
-        return [
-          {
-            value: "R$ 700,00 No lançamento",
-            label: "R$ 700,00",
-            description: "Valor promocional por stand para pedidos com dois ou mais stands.",
-          },
-        ];
-      }
-
-      return [
-        {
-          value: "R$ 750,00 Dois ou mais stands",
-          label: "R$ 750,00",
-          description: "Valor fixo por stand para pedidos com dois ou mais stands.",
-        },
-      ];
-    }
-
-    const options: PaymentOption[] = [];
-
-    if (launchPricingEnabled) {
-      options.push({
-        value: "R$ 700,00 No lançamento",
-        label: "R$ 700,00",
-        description: "Valor promocional liberado pelo painel administrativo.",
-      });
-    }
-
-    options.push({
-      value: "R$ 850,00 Após o lançamento",
-      label: "R$ 850,00",
-    });
-
-    return options;
+  const resolvedPaymentMethod = useMemo<FormattedPaymentMethod>(() => {
+    return getPaymentMethodFor(standsQuantity, launchPricingEnabled);
   }, [launchPricingEnabled, standsQuantity]);
 
-  useEffect(() => {
-    if (standsQuantity >= 2) {
-      const targetMethod = launchPricingEnabled
-        ? "R$ 700,00 No lançamento"
-        : "R$ 750,00 Dois ou mais stands";
-
-      if (paymentMethod !== targetMethod) {
-        form.setValue("payment_method", targetMethod, { shouldValidate: true });
-      }
-      return;
-    }
-
-    if (!launchPricingEnabled && paymentMethod === "R$ 700,00 No lançamento") {
-      form.setValue("payment_method", "R$ 850,00 Após o lançamento", { shouldValidate: true });
-      return;
-    }
-
-    if (availablePaymentOptions.length === 1) {
-      const fallback = availablePaymentOptions[0]?.value;
-      if (fallback && paymentMethod !== fallback) {
-        form.setValue("payment_method", fallback, { shouldValidate: true });
-      }
-      return;
-    }
-
-    if (paymentMethod && !availablePaymentOptions.some((option) => option.value === paymentMethod)) {
-      form.setValue("payment_method", undefined, { shouldValidate: true });
-    }
-  }, [availablePaymentOptions, form, launchPricingEnabled, paymentMethod, standsQuantity]);
-
-  const totalAmount = calculateTotalAmount(standsQuantity, paymentMethod);
-
+  const unitPrice = PAYMENT_UNIT_PRICES[resolvedPaymentMethod] ?? 0;
+  const totalAmount = calculateTotalAmount(standsQuantity, resolvedPaymentMethod);
   const formattedTotal = formatCurrencyBRL(totalAmount);
+  const formattedUnitPrice = formatCurrencyBRL(unitPrice);
 
-  const totalSummaryMessage = paymentMethod
-    ? `Total estimado: ${formattedTotal}`
-    : "Selecione a forma de pagamento para visualizar o total.";
+  const pricingMessage = useMemo(() => {
+    if (settingsLoading) {
+      return "Carregando regras de investimento...";
+    }
+
+    if (standsQuantity >= 2) {
+      return launchPricingEnabled
+        ? "Promoção Lançamento ativa: pedidos com dois ou mais stands saem por R$ 700,00 cada."
+        : "Pedidos com dois ou mais stands têm investimento fixo de R$ 750,00 por stand.";
+    }
+
+    return launchPricingEnabled
+      ? "Promoção Lançamento ativa: primeiro stand por R$ 700,00."
+      : "Valor padrão por stand: R$ 850,00.";
+  }, [launchPricingEnabled, settingsLoading, standsQuantity]);
+
 
   const onSubmit = async (data: FormData) => {
     if (submitted) return;
@@ -452,16 +384,9 @@ const Cadastro = () => {
         return;
       }
 
-      if (!launchPricingEnabled && data.payment_method === "R$ 700,00 No lançamento") {
-        toast.error("O valor promocional de R$ 700,00 não está disponível no momento.");
-        setLoading(false);
-        return;
-      }
-
-      const computedTotal = calculateTotalAmount(
-        Number.parseInt(data.stands_quantity, 10),
-        data.payment_method
-      );
+      const standsCount = Number.parseInt(data.stands_quantity, 10);
+      const paymentMethodForSubmission = getPaymentMethodFor(standsCount, launchPricingEnabled);
+      const computedTotal = calculateTotalAmount(standsCount, paymentMethodForSubmission);
 
       const businessSegment =
         data.business_segment === "Outros" && data.other_business_segment
@@ -476,8 +401,8 @@ const Cadastro = () => {
         phone: data.phone.trim(),
         company_size: data.company_size,
         business_segment: businessSegment,
-        stands_quantity: Number.parseInt(data.stands_quantity, 10),
-        payment_method: data.payment_method,
+        stands_quantity: standsCount,
+        payment_method: paymentMethodForSubmission,
         status: "Pendente" as const,
         total_amount: computedTotal,
         boleto_path: null,
@@ -758,64 +683,26 @@ const Cadastro = () => {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="payment_method"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Forma de Pagamento *</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                              disabled={settingsLoading}
-                            >
-                              <FormControl>
-                                <SelectTrigger disabled={settingsLoading}>
-                                  <SelectValue
-                                    placeholder={settingsLoading ? "Carregando opções..." : "Selecione a forma"}
-                                  />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {availablePaymentOptions.map((option) => (
-                                  <SelectItem key={option.value} value={option.value}>
-                                    <div className="flex flex-col">
-                                      <span>{option.label}</span>
-                                      {option.description ? (
-                                        <span className="text-xs text-muted-foreground">{option.description}</span>
-                                      ) : null}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {settingsLoading ? (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Carregando opções disponíveis...
-                              </p>
-                            ) : standsQuantity >= 2 ? (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {launchPricingEnabled
-                                  ? "Compras com dois ou mais stands seguem o valor promocional de R$ 700,00 por stand."
-                                  : "Para dois ou mais stands o valor é fixo: R$ 750,00 por stand."}
-                              </p>
-                            ) : !launchPricingEnabled ? (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                O valor promocional de lançamento não está disponível no momento.
-                              </p>
-                            ) : null}
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-sm font-medium text-primary">Resumo financeiro</p>
+                          <p className="text-xs text-muted-foreground">
+                            Os valores são calculados automaticamente conforme a quantidade de stands e a disponibilidade da promoção Lançamento.
+                          </p>
+                        </div>
 
-                      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-1">
-                        <p className="text-sm text-muted-foreground">Resumo financeiro</p>
-                        <p className="text-lg font-semibold text-primary">
-                          {totalSummaryMessage}
-                        </p>
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <div className="text-sm text-muted-foreground">Valor por stand</div>
+                          <div className="text-lg font-semibold text-primary">{formattedUnitPrice}</div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                          <div className="text-sm text-muted-foreground">Total estimado</div>
+                          <div className="text-lg font-semibold text-primary">{formattedTotal}</div>
+                        </div>
+
                         <p className="text-xs text-muted-foreground/80">
-                          Valor calculado automaticamente com base na quantidade de stands e na forma escolhida.
+                          {pricingMessage}
                         </p>
                       </div>
 

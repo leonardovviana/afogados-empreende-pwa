@@ -97,7 +97,7 @@ const normalizePaymentMethod = (method: string): string => {
   switch (method) {
     case "À vista":
     case "PIX":
-      return "R$ 700,00 No lançamento";
+      return "R$ 700,00 Lançamento";
     case "Parcelado":
       return "R$ 850,00 Após o lançamento";
     case "Boleto":
@@ -386,8 +386,8 @@ const AdminDashboard = () => {
       await loadRegistrationSettings();
       toast.success(
         enabled
-          ? "Valor promocional de R$ 700,00 liberado para novos cadastros."
-          : "Valor promocional de R$ 700,00 desativado para novos cadastros."
+          ? "Promoção Lançamento ativa para novos cadastros."
+          : "Promoção Lançamento desativada para novos cadastros."
       );
     } catch (error) {
       console.error("Erro ao atualizar configuração de preços:", error);

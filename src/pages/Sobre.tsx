@@ -1,6 +1,7 @@
 import heroBg from "@/assets/hero-bg.jpg";
 import heroBg2 from "@/assets/hero-bg2.jpg";
 import heroBg3 from "@/assets/hero-bg3.jpg";
+import mapFeira from "@/assets/mapafeira.jpg";
 import logoAfogados from "@/assets/logoaf.png";
 import logoCdl from "@/assets/logocdl.png";
 import logoSebrae from "@/assets/logosebrae.png";
@@ -142,16 +143,6 @@ const galleryStaticImages: GalleryImage[] = [
   {
     src: heroBg3,
     caption: "Experiência gastronômica dos expositores",
-    showCaption: false,
-  },
-  {
-    src: heroBg2,
-    caption: "Mentorias coletivas com especialistas",
-    showCaption: false,
-  },
-  {
-    src: heroBg3,
-    caption: "Palco multi-trilhas com cases do Sertão",
     showCaption: false,
   },
 ] as const;

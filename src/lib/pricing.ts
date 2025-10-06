@@ -2,7 +2,7 @@
 
 export const STAND_OPTIONS = ["1", "2", "3", "4", "5"] as const;
 export const FORMATTED_PAYMENT_METHODS = [
-  "R$ 700,00 No lançamento",
+  "R$ 700,00 Lançamento",
   "R$ 850,00 Após o lançamento",
   "R$ 750,00 Dois ou mais stands",
 ] as const;
@@ -11,13 +11,13 @@ export type StandOption = (typeof STAND_OPTIONS)[number];
 export type FormattedPaymentMethod = (typeof FORMATTED_PAYMENT_METHODS)[number];
 
 export const PAYMENT_UNIT_PRICES: Record<FormattedPaymentMethod, number> = {
-  "R$ 700,00 No lançamento": 700,
+  "R$ 700,00 Lançamento": 700,
   "R$ 850,00 Após o lançamento": 850,
   "R$ 750,00 Dois ou mais stands": 750,
 };
 
 export const PAYMENT_METHOD_DISPLAY_LABELS: Record<FormattedPaymentMethod, string> = {
-  "R$ 700,00 No lançamento": "R$ 700,00",
+  "R$ 700,00 Lançamento": "R$ 700,00",
   "R$ 850,00 Após o lançamento": "R$ 850,00",
   "R$ 750,00 Dois ou mais stands": "R$ 750,00",
 };
