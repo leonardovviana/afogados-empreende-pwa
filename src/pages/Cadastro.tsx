@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import type { ExhibitorRegistrationInsert } from "@/integrations/supabase/types";
 import {
     calculateTotalAmount,
@@ -294,11 +294,37 @@ const Cadastro = () => {
     let active = true;
 
     const loadSettings = async () => {
+      if (!isSupabaseConfigured()) {
+        if (!active) return;
+        console.warn(
+          "Supabase não configurado. Usando valores padrão para as opções de pagamento."
+        );
+        toast.error(
+          "Não foi possível conectar ao Supabase para carregar as opções de pagamento. Usando valores padrão."
+        );
+        setLaunchPricingEnabled(true);
+        setSettingsLoading(false);
+        return;
+      }
+
       try {
         const settings = await fetchRegistrationSettings();
         if (!active) return;
         setLaunchPricingEnabled(settings.launchPricingEnabled);
       } catch (error) {
+        let message = "";
+        if (error instanceof Error) {
+          message = error.message;
+        } else if (typeof error === "string") {
+          message = error;
+        } else {
+          try {
+            message = JSON.stringify(error);
+          } catch (stringifyError) {
+            console.warn("Não foi possível serializar o erro de configuração de preços:", stringifyError);
+            message = "";
+          }
+        }
         console.error("Erro ao carregar configuração de preços:", error);
         if (!active) return;
         if (error instanceof RegistrationSettingsNotProvisionedError) {
@@ -306,7 +332,11 @@ const Cadastro = () => {
             "Configuração de preços ainda não provisionada. Execute as migrações do Supabase e tente novamente. Usando valores padrão por enquanto."
           );
         } else {
-          toast.error("Não foi possível carregar as opções de pagamento. Usando valores padrão.");
+          toast.error(
+            `Não foi possível carregar as opções de pagamento. Usando valores padrão${
+              message ? ` (${message})` : ""
+            }.`
+          );
         }
         setLaunchPricingEnabled(true);
       } finally {

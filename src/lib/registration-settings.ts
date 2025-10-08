@@ -27,7 +27,10 @@ const isPostgrestError = (error: unknown): error is PostgrestError =>
 	typeof error === "object" && error !== null && "code" in error && "message" in error;
 
 const isTableMissingError = (error: unknown): boolean =>
-	isPostgrestError(error) && error.code === "42P01";
+	isPostgrestError(error) &&
+	(error.code === "42P01" ||
+		error.code === "PGRST205" ||
+		/Could not find the table .* schema cache/i.test(error.message));
 
 const isPermissionDeniedError = (error: unknown): boolean =>
 	isPostgrestError(error) && error.code === "42501";

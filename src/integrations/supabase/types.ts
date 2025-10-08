@@ -2,7 +2,8 @@ export type RegistrationStatus =
 	| "Pendente"
 	| "Aguardando pagamento"
 	| "Participação confirmada"
-	| "Cancelado";
+	| "Cancelado"
+	| "Escolha seu stand";
 
 export type PaymentMethod =
 	| "R$ 700,00 Lançamento"
@@ -25,6 +26,7 @@ export interface ExhibitorRegistrationRow {
 	phone: string;
 	company_size: CompanySize;
 	business_segment: string;
+	cpf_cnpj_normalized: string | null;
 	stands_quantity: number;
 	payment_method: PaymentMethod;
 	status: RegistrationStatus;
@@ -33,6 +35,14 @@ export interface ExhibitorRegistrationRow {
 	payment_proof_path: string | null;
 	payment_proof_uploaded_at: string | null;
 	total_amount: number;
+	stand_selection_slot_start: number | null;
+	stand_selection_slot_end: number | null;
+	stand_selection_window_started_at: string | null;
+	stand_selection_window_expires_at: string | null;
+	stand_selection_choices: string | null;
+	stand_selection_submitted_at: string | null;
+	stand_selection_notification_last_sent: string | null;
+	stand_selection_notifications_count: number;
 	created_at: string;
 	updated_at: string;
 }
@@ -54,6 +64,14 @@ export type ExhibitorRegistrationInsert = {
 	payment_proof_uploaded_at?: string | null;
 	total_amount?: number;
 	cpf_cnpj_normalized?: string | null;
+	stand_selection_slot_start?: number | null;
+	stand_selection_slot_end?: number | null;
+	stand_selection_window_started_at?: string | null;
+	stand_selection_window_expires_at?: string | null;
+	stand_selection_choices?: string | null;
+	stand_selection_submitted_at?: string | null;
+	stand_selection_notification_last_sent?: string | null;
+	stand_selection_notifications_count?: number;
 };
 
 export type ExhibitorRegistrationUpdate = Partial<
@@ -176,5 +194,6 @@ export const REGISTRATION_STATUSES: RegistrationStatus[] = [
 	"Aguardando pagamento",
 	"Participação confirmada",
 	"Cancelado",
+	"Escolha seu stand",
 ];
 

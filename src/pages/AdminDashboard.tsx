@@ -1,5 +1,7 @@
 import logoShield from "@/assets/logoescudo.png";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   clearSupabaseBrowserConfig,
   getSupabaseConfigSnapshot,
@@ -34,8 +37,17 @@ import {
   upsertRegistrationSettings,
 } from "@/lib/registration-settings";
 import { buildBoletoFilePath } from "@/lib/storage";
+import {
+  STAND_SELECTION_DURATION_MINUTES,
+  computeStandSelectionStatus,
+  openStandSelectionWindow,
+  parseStandChoices,
+  triggerStandSelectionNotification,
+  type StandSelectionRegistration,
+  type StandSelectionStatus,
+} from "@/lib/stand-selection";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { Download, Loader2, LogOut, RefreshCw, Search, Trash2, UploadCloud } from "lucide-react";
+import { BellRing, Clock, Download, Loader2, LogOut, RefreshCw, Search, Send, Trash2, UploadCloud } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -47,6 +59,7 @@ const MISSING_SUPABASE_MESSAGE =
 const statusOptions = [
   "Pendente",
   "Aguardando pagamento",
+  "Escolha seu stand",
   "Participação confirmada",
   "Cancelado",
 ] as const;
@@ -56,6 +69,7 @@ type RegistrationStatus = (typeof statusOptions)[number];
 const STATUS_BADGE_VARIANTS: Record<RegistrationStatus, string> = Object.freeze({
   "Pendente": "bg-accent/20 text-accent",
   "Aguardando pagamento": "bg-amber-100 text-amber-700",
+  "Escolha seu stand": "bg-indigo-100 text-indigo-700",
   "Participação confirmada": "bg-secondary/20 text-secondary",
   "Cancelado": "bg-destructive/20 text-destructive",
 });
@@ -67,6 +81,7 @@ const STATUS_NORMALIZATION_MAP: Record<string, RegistrationStatus> = {
   "participacao confirmada": "Participação confirmada",
   "stand confirmado": "Participação confirmada",
   aprovado: "Participação confirmada",
+  "escolha seu stand": "Escolha seu stand",
   recusado: "Cancelado",
   cancelado: "Cancelado",
 };
@@ -131,6 +146,14 @@ interface Registration {
   created_at: string;
   updated_at: string | null;
   total_amount: number;
+  stand_selection_slot_start: number | null;
+  stand_selection_slot_end: number | null;
+  stand_selection_window_started_at: string | null;
+  stand_selection_window_expires_at: string | null;
+  stand_selection_choices: string | null;
+  stand_selection_submitted_at: string | null;
+  stand_selection_notification_last_sent: string | null;
+  stand_selection_notifications_count: number;
 }
 
 const mapRowToRegistration = (row: ExhibitorRegistrationRow): Registration => {
@@ -159,6 +182,14 @@ const mapRowToRegistration = (row: ExhibitorRegistrationRow): Registration => {
     created_at: createdAt,
     updated_at: row.updated_at ?? null,
     total_amount: storedTotal > 0 ? storedTotal : fallbackTotal,
+    stand_selection_slot_start: row.stand_selection_slot_start ?? null,
+    stand_selection_slot_end: row.stand_selection_slot_end ?? null,
+    stand_selection_window_started_at: row.stand_selection_window_started_at ?? null,
+    stand_selection_window_expires_at: row.stand_selection_window_expires_at ?? null,
+    stand_selection_choices: row.stand_selection_choices ?? null,
+    stand_selection_submitted_at: row.stand_selection_submitted_at ?? null,
+    stand_selection_notification_last_sent: row.stand_selection_notification_last_sent ?? null,
+    stand_selection_notifications_count: Number(row.stand_selection_notifications_count ?? 0),
   };
 };
 
@@ -193,6 +224,22 @@ const isStoragePermissionError = (error: unknown): boolean => {
 
 const PAYMENT_PROOF_PERMISSION_MESSAGE =
   "As permissões do bucket de comprovantes não estão atualizadas. Execute as últimas migrações do Supabase (incluindo 20251003171000_refresh_payment_proof_security.sql) e tente novamente.";
+
+const STAND_SELECTION_STATUS_VARIANTS: Record<StandSelectionStatus, string> = Object.freeze({
+  idle: "bg-muted text-muted-foreground",
+  pending: "bg-amber-100 text-amber-700",
+  active: "bg-emerald-100 text-emerald-700",
+  expired: "bg-destructive/20 text-destructive",
+  completed: "bg-secondary/20 text-secondary",
+});
+
+const STAND_SELECTION_STATUS_LABELS: Record<StandSelectionStatus, string> = Object.freeze({
+  idle: "Aguardando convocação",
+  pending: "Aguardando liberação",
+  active: "Janela ativa",
+  expired: "Janela expirada",
+  completed: "Escolha concluída",
+});
 
 const fetchAdminProfile = async (userId: string): Promise<AdminProfileRow | null> => {
   const { data, error } = await supabase
@@ -231,6 +278,11 @@ const AdminDashboard = () => {
   const [launchPricingLoading, setLaunchPricingLoading] = useState(true);
   const [launchPricingSaving, setLaunchPricingSaving] = useState(false);
   const [launchPricingAvailable, setLaunchPricingAvailable] = useState(true);
+  const [standSelectionTab, setStandSelectionTab] = useState<"queue" | "completed">("queue");
+  const [standSelectionSearch, setStandSelectionSearch] = useState("");
+  const [standWindowForm, setStandWindowForm] = useState<Record<string, { slotStart: string; slotEnd: string; duration: string }>>({});
+  const [standWindowSubmittingId, setStandWindowSubmittingId] = useState<string | null>(null);
+  const [standNotificationId, setStandNotificationId] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const navigate = useNavigate();
 
@@ -289,10 +341,87 @@ const AdminDashboard = () => {
     };
   }, [filteredRegistrations]);
 
+  const standSelectionQueue = useMemo(() => {
+    return registrations.filter(
+      (registration) => registration.status === "Escolha seu stand" && !registration.stand_selection_choices
+    );
+  }, [registrations]);
+
+  const standSelectionCompleted = useMemo(() => {
+    return registrations.filter((registration) => Boolean(registration.stand_selection_choices));
+  }, [registrations]);
+
+  const standSelectionStats = useMemo(() => {
+    const counts: Record<StandSelectionStatus, number> = {
+      idle: 0,
+      pending: 0,
+      active: 0,
+      expired: 0,
+      completed: 0,
+    };
+
+    for (const registration of registrations) {
+      const status = computeStandSelectionStatus(registration as unknown as StandSelectionRegistration);
+      counts[status] += 1;
+    }
+
+    return counts;
+  }, [registrations]);
+
+  const standSelectionSearchFilter = useCallback(
+    (registration: Registration, normalizedSearch: string, numericSearch: string, hasSearch: boolean) => {
+      if (!hasSearch) {
+        return true;
+      }
+
+      const registrationDigits = sanitizeDigits(registration.cpf_cnpj);
+      const normalizedDigits = registration.cpf_cnpj_normalized ?? "";
+
+      return (
+        registration.company_name.toLowerCase().includes(normalizedSearch) ||
+        registration.responsible_name.toLowerCase().includes(normalizedSearch) ||
+        registration.cpf_cnpj.toLowerCase().includes(normalizedSearch) ||
+        (numericSearch
+          ? registrationDigits.includes(numericSearch) || normalizedDigits.includes(numericSearch)
+          : false)
+      );
+    },
+    []
+  );
+
+  const filteredStandSelectionQueue = useMemo(() => {
+    if (!standSelectionQueue.length) {
+      return [];
+    }
+
+    const normalizedSearch = standSelectionSearch.trim().toLowerCase();
+    const numericSearch = normalizedSearch.replace(/[^0-9]/g, "");
+    const hasSearch = normalizedSearch.length > 0;
+
+    return standSelectionQueue.filter((registration) =>
+      standSelectionSearchFilter(registration, normalizedSearch, numericSearch, hasSearch)
+    );
+  }, [standSelectionQueue, standSelectionSearch, standSelectionSearchFilter]);
+
+  const filteredStandSelectionCompleted = useMemo(() => {
+    if (!standSelectionCompleted.length) {
+      return [];
+    }
+
+    const normalizedSearch = standSelectionSearch.trim().toLowerCase();
+    const numericSearch = normalizedSearch.replace(/[^0-9]/g, "");
+    const hasSearch = normalizedSearch.length > 0;
+
+    return standSelectionCompleted.filter((registration) =>
+      standSelectionSearchFilter(registration, normalizedSearch, numericSearch, hasSearch)
+    );
+  }, [standSelectionCompleted, standSelectionSearch, standSelectionSearchFilter]);
+
   const dashboardSummary = useMemo(() => {
     const counts: Record<RegistrationStatus, number> = {
       "Pendente": 0,
       "Aguardando pagamento": 0,
+      "Escolha seu stand": 0,
       "Participação confirmada": 0,
       "Cancelado": 0,
     };
@@ -300,8 +429,8 @@ const AdminDashboard = () => {
     let totalAmount = 0;
 
     for (const registration of registrations) {
-  counts[registration.status] += 1;
-  totalAmount += registration.total_amount;
+      counts[registration.status] += 1;
+      totalAmount += registration.total_amount;
     }
 
     return {
@@ -545,6 +674,171 @@ const AdminDashboard = () => {
       void fetchDashboardData();
     }
   }, [authChecked, fetchDashboardData, loadRegistrationSettings]);
+
+  useEffect(() => {
+    setStandWindowForm((current) => {
+      const next: Record<string, { slotStart: string; slotEnd: string; duration: string }> = {};
+
+      for (const registration of standSelectionQueue) {
+        const existing = current[registration.id];
+        const slotStart = registration.stand_selection_slot_start;
+        const slotEnd = registration.stand_selection_slot_end;
+
+        let duration = existing?.duration ?? null;
+
+        if (!duration) {
+          const startedAt = registration.stand_selection_window_started_at;
+          const expiresAt = registration.stand_selection_window_expires_at;
+
+          if (startedAt && expiresAt) {
+            const startTime = new Date(startedAt).getTime();
+            const endTime = new Date(expiresAt).getTime();
+            if (Number.isFinite(startTime) && Number.isFinite(endTime) && endTime > startTime) {
+              duration = String(Math.max(5, Math.round((endTime - startTime) / 60000)));
+            }
+          }
+        }
+
+        if (!duration) {
+          duration = String(STAND_SELECTION_DURATION_MINUTES);
+        }
+
+        next[registration.id] = {
+          slotStart: existing?.slotStart ?? (slotStart != null ? String(slotStart) : ""),
+          slotEnd: existing?.slotEnd ?? (slotEnd != null ? String(slotEnd) : ""),
+          duration,
+        };
+      }
+
+      return next;
+    });
+  }, [standSelectionQueue]);
+
+  const getStandWindowForm = (registration: Registration) =>
+    standWindowForm[registration.id] ?? {
+      slotStart: registration.stand_selection_slot_start != null
+        ? String(registration.stand_selection_slot_start)
+        : "",
+      slotEnd: registration.stand_selection_slot_end != null
+        ? String(registration.stand_selection_slot_end)
+        : "",
+      duration: String(STAND_SELECTION_DURATION_MINUTES),
+    };
+
+  const formatDateTime = useCallback((value: string | null) => {
+    if (!value) {
+      return "—";
+    }
+
+    try {
+      return new Date(value).toLocaleString("pt-BR");
+    } catch (error) {
+      console.warn("Falha ao formatar data:", error);
+      return value;
+    }
+  }, []);
+
+  const handleStandWindowInputChange = useCallback(
+    (registrationId: string, field: "slotStart" | "slotEnd" | "duration") =>
+      (event: ChangeEvent<HTMLInputElement>) => {
+        const digits = event.target.value.replace(/[^0-9]/g, "");
+        setStandWindowForm((current) => {
+          const existing = current[registrationId] ?? {
+            slotStart: "",
+            slotEnd: "",
+            duration: String(STAND_SELECTION_DURATION_MINUTES),
+          };
+
+          return {
+            ...current,
+            [registrationId]: {
+              ...existing,
+              [field]: digits,
+            },
+          };
+        });
+      },
+    []
+  );
+
+  const handleOpenStandSelectionWindow = useCallback(
+    async (registration: Registration) => {
+      const formValues = standWindowForm[registration.id] ?? {
+        slotStart: registration.stand_selection_slot_start != null
+          ? String(registration.stand_selection_slot_start)
+          : "",
+        slotEnd: registration.stand_selection_slot_end != null
+          ? String(registration.stand_selection_slot_end)
+          : "",
+        duration: String(STAND_SELECTION_DURATION_MINUTES),
+      };
+      const slotStart = Number.parseInt(formValues.slotStart, 10);
+      const slotEnd = Number.parseInt(formValues.slotEnd, 10);
+      const duration = Number.parseInt(formValues.duration, 10) || STAND_SELECTION_DURATION_MINUTES;
+
+      if (!Number.isFinite(slotStart) || !Number.isFinite(slotEnd)) {
+        toast.error("Informe o intervalo de stands para liberar a janela.");
+        return;
+      }
+
+      if (slotEnd < slotStart) {
+        toast.error("O número final não pode ser menor que o inicial.");
+        return;
+      }
+
+      if (duration < 5) {
+        toast.error("Defina uma duração mínima de 5 minutos.");
+        return;
+      }
+
+      try {
+        setStandWindowSubmittingId(registration.id);
+        await openStandSelectionWindow(registration.id, {
+          slotStart,
+          slotEnd,
+          durationMinutes: duration,
+        });
+        toast.success(`Janela de seleção liberada para ${registration.company_name}.`);
+        await fetchDashboardData();
+      } catch (error) {
+        console.error("Erro ao abrir janela de seleção:", error);
+        toast.error("Não foi possível liberar a janela. Verifique os dados e tente novamente.");
+      } finally {
+        setStandWindowSubmittingId(null);
+      }
+    },
+    [fetchDashboardData, standWindowForm]
+  );
+
+  const handleSendStandNotification = useCallback(
+    async (registration: Registration, reminder = false) => {
+      if (registration.stand_selection_slot_start == null || registration.stand_selection_slot_end == null) {
+        toast.error("Defina o intervalo de stands antes de enviar notificações.");
+        return;
+      }
+
+      try {
+        setStandNotificationId(registration.id);
+        await triggerStandSelectionNotification({
+          registrationId: registration.id,
+          companyName: registration.company_name,
+          slotStart: registration.stand_selection_slot_start,
+          slotEnd: registration.stand_selection_slot_end,
+          windowExpiresAt: registration.stand_selection_window_expires_at,
+          standsQuantity: registration.stands_quantity,
+          reminder,
+        });
+        toast.success(reminder ? "Lembrete enviado com sucesso!" : "Notificação enviada.");
+        await fetchDashboardData();
+      } catch (error) {
+        console.error("Erro ao enviar notificação de seleção de stand:", error);
+        toast.error("Não foi possível enviar a notificação. Tente novamente.");
+      } finally {
+        setStandNotificationId(null);
+      }
+    },
+    [fetchDashboardData]
+  );
 
   const updateStatus = async (id: string, status: RegistrationStatus) => {
     try {
@@ -980,6 +1274,12 @@ const AdminDashboard = () => {
             </div>
             <div className="text-sm text-muted-foreground">Aguardando pagamento</div>
           </div>
+          <div className="bg-card rounded-xl p-6 shadow-elegant md:col-span-2">
+            <div className="text-3xl font-bold text-indigo-600 mb-1 font-['Poppins']">
+              {dashboardSummary.counts["Escolha seu stand"]}
+            </div>
+            <div className="text-sm text-muted-foreground">Liberados para escolha</div>
+          </div>
           <div className="bg-card rounded-xl p-6 shadow-primary md:col-span-2">
             <div className="text-3xl font-bold text-destructive mb-1 font-['Poppins']">
               {dashboardSummary.counts["Cancelado"]}
@@ -1056,6 +1356,7 @@ const AdminDashboard = () => {
                 <SelectItem value="all">Todos Status</SelectItem>
                 <SelectItem value="Pendente">Pendente</SelectItem>
                 <SelectItem value="Aguardando pagamento">Aguardando pagamento</SelectItem>
+                <SelectItem value="Escolha seu stand">Escolha seu stand</SelectItem>
                 <SelectItem value="Participação confirmada">
                   Participação confirmada
                 </SelectItem>
@@ -1097,6 +1398,293 @@ const AdminDashboard = () => {
             </span>
           </div>
         </div>
+
+        <Card className="mb-6 shadow-elegant">
+          <CardHeader>
+            <CardTitle>Seleção de stands</CardTitle>
+            <CardDescription>
+              Gerencie a fila de convocação, defina janelas de escolha e acompanhe os lembretes enviados aos expositores.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
+                <Badge className="bg-amber-100 text-amber-700">Pendentes: {standSelectionStats.pending}</Badge>
+                <Badge className="bg-emerald-100 text-emerald-700">Ativos: {standSelectionStats.active}</Badge>
+                <Badge className="bg-destructive/20 text-destructive">Expirados: {standSelectionStats.expired}</Badge>
+                <Badge className="bg-secondary/20 text-secondary">Concluídos: {standSelectionStats.completed}</Badge>
+              </div>
+              <div className="w-full max-w-sm">
+                <Input
+                  value={standSelectionSearch}
+                  onChange={(event) => setStandSelectionSearch(event.target.value)}
+                  placeholder="Buscar por empresa, CPF/CNPJ ou responsável..."
+                />
+              </div>
+            </div>
+
+            <Tabs
+              value={standSelectionTab}
+              onValueChange={(value) => setStandSelectionTab(value as "queue" | "completed")}
+              className="space-y-4"
+            >
+              <TabsList className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:inline-flex">
+                <TabsTrigger value="queue" className="flex items-center gap-2 px-4 py-2">
+                  Fila ativa
+                  {standSelectionQueue.length > 0 ? (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                      {standSelectionQueue.length}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+                <TabsTrigger value="completed" className="flex items-center gap-2 px-4 py-2">
+                  Concluídos
+                  {standSelectionCompleted.length > 0 ? (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                      {standSelectionCompleted.length}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="queue" className="space-y-4">
+                {filteredStandSelectionQueue.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-primary/20 bg-primary/5 p-6 text-center text-sm text-muted-foreground">
+                    {standSelectionQueue.length === 0
+                      ? "Nenhum cadastro aguardando seleção no momento."
+                      : "Nenhum cadastro corresponde ao filtro informado."}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Empresa</TableHead>
+                          <TableHead>Controle da janela</TableHead>
+                          <TableHead>Status da janela</TableHead>
+                          <TableHead>Notificações</TableHead>
+                          <TableHead className="w-[220px]">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredStandSelectionQueue.map((registration) => {
+                          const standStatus = computeStandSelectionStatus(
+                            registration as unknown as StandSelectionRegistration
+                          );
+                          const form = getStandWindowForm(registration);
+                          const isSubmitting = standWindowSubmittingId === registration.id;
+                          const sendingNotification = standNotificationId === registration.id;
+                          const lastNotification = registration.stand_selection_notification_last_sent;
+
+                          return (
+                            <TableRow key={registration.id}>
+                              <TableCell>
+                                <div className="font-semibold text-primary">{registration.company_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Responsável: {registration.responsible_name}
+                                </div>
+                                <div className="text-xs text-muted-foreground">CPF/CNPJ: {registration.cpf_cnpj}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Quantidade de stands: {registration.stands_quantity}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-2">
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={form.slotStart}
+                                    onChange={handleStandWindowInputChange(registration.id, "slotStart")}
+                                    placeholder="Início"
+                                    className="w-24"
+                                  />
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    value={form.slotEnd}
+                                    onChange={handleStandWindowInputChange(registration.id, "slotEnd")}
+                                    placeholder="Fim"
+                                    className="w-24"
+                                  />
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    min={5}
+                                    value={form.duration}
+                                    onChange={handleStandWindowInputChange(registration.id, "duration")}
+                                    placeholder="Duração"
+                                    className="w-24"
+                                  />
+                                  <span className="text-xs text-muted-foreground">min</span>
+                                </div>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  Intervalo atual: {registration.stand_selection_slot_start != null && registration.stand_selection_slot_end != null
+                                    ? `${registration.stand_selection_slot_start}-${registration.stand_selection_slot_end}`
+                                    : "—"}
+                                </p>
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  className={`${STAND_SELECTION_STATUS_VARIANTS[standStatus]} px-2 py-1 text-xs font-medium`}
+                                >
+                                  {STAND_SELECTION_STATUS_LABELS[standStatus]}
+                                </Badge>
+                                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                                  <div>Início: {formatDateTime(registration.stand_selection_window_started_at)}</div>
+                                  <div>Expira: {formatDateTime(registration.stand_selection_window_expires_at)}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                  <div>Total de envios: {registration.stand_selection_notifications_count ?? 0}</div>
+                                  <div>Última notificação: {formatDateTime(lastNotification)}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void handleOpenStandSelectionWindow(registration)}
+                                    disabled={isSubmitting}
+                                    className="justify-start gap-2"
+                                  >
+                                    {isSubmitting ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Clock className="h-4 w-4" />
+                                    )}
+                                    {standStatus === "active" ? "Atualizar janela" : "Liberar janela"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void handleSendStandNotification(registration, false)}
+                                    disabled={sendingNotification}
+                                    className="justify-start gap-2"
+                                  >
+                                    {sendingNotification ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Send className="h-4 w-4" />
+                                    )}
+                                    Enviar notificação
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => void handleSendStandNotification(registration, true)}
+                                    disabled={sendingNotification || !lastNotification}
+                                    className="justify-start gap-2 text-muted-foreground"
+                                  >
+                                    {sendingNotification ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <BellRing className="h-4 w-4" />
+                                    )}
+                                    Reenviar lembrete
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="completed" className="space-y-4">
+                {filteredStandSelectionCompleted.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/10 p-6 text-center text-sm text-muted-foreground">
+                    {standSelectionCompleted.length === 0
+                      ? "Nenhum expositor enviou a escolha de stand ainda."
+                      : "Nenhum cadastro corresponde ao filtro informado."}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Empresa</TableHead>
+                          <TableHead>Escolha enviada</TableHead>
+                          <TableHead>Janela registrada</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredStandSelectionCompleted.map((registration) => {
+                          const standStatus = computeStandSelectionStatus(
+                            registration as unknown as StandSelectionRegistration
+                          );
+                          const choices = registration.stand_selection_choices
+                            ? parseStandChoices(registration.stand_selection_choices).join(", ")
+                            : "—";
+
+                          return (
+                            <TableRow key={registration.id}>
+                              <TableCell>
+                                <div className="font-semibold text-primary">{registration.company_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Responsável: {registration.responsible_name}
+                                </div>
+                                <div className="text-xs text-muted-foreground">CPF/CNPJ: {registration.cpf_cnpj}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Quantidade de stands: {registration.stands_quantity}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium text-primary">{choices}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Enviado em: {formatDateTime(
+                                    registration.stand_selection_submitted_at ??
+                                      registration.stand_selection_window_expires_at
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                  <div>
+                                    Intervalo liberado: {registration.stand_selection_slot_start != null && registration.stand_selection_slot_end != null
+                                      ? `${registration.stand_selection_slot_start}-${registration.stand_selection_slot_end}`
+                                      : "—"}
+                                  </div>
+                                  <div>
+                                    Janela aberta: {formatDateTime(registration.stand_selection_window_started_at)}
+                                  </div>
+                                  <div>
+                                    Encerramento: {formatDateTime(registration.stand_selection_window_expires_at)}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-2">
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      STATUS_BADGE_VARIANTS[registration.status] ?? STATUS_BADGE_VARIANTS["Pendente"]
+                                    }`}
+                                  >
+                                    {registration.status}
+                                  </span>
+                                  <Badge
+                                    className={`${STAND_SELECTION_STATUS_VARIANTS[standStatus]} px-2 py-1 text-[11px] font-medium`}
+                                  >
+                                    {STAND_SELECTION_STATUS_LABELS[standStatus]}
+                                  </Badge>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         <div className="bg-card rounded-xl shadow-elegant overflow-hidden">
           <div className="overflow-x-auto">
@@ -1288,6 +1876,9 @@ const AdminDashboard = () => {
                               <SelectItem value="Pendente">Pendente</SelectItem>
                               <SelectItem value="Aguardando pagamento">
                                 Aguardando pagamento
+                              </SelectItem>
+                              <SelectItem value="Escolha seu stand">
+                                Escolha seu stand
                               </SelectItem>
                               <SelectItem value="Participação confirmada">
                                 Participação confirmada

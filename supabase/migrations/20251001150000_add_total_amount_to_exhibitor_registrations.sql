@@ -7,8 +7,9 @@ alter table public.exhibitor_registrations
 -- Backfill existing rows using the current pricing rules.
 update public.exhibitor_registrations
 set total_amount = (
-  case payment_method
-  when 'R$ 700,00 Lançamento' then 700
+  case payment_method::text
+  when 'R$ 700,00 No lançamento' then 700
+    when 'R$ 700,00 Lançamento' then 700
     when 'R$ 850,00 Após o lançamento' then 850
     when 'R$ 750,00 Dois ou mais stands' then 750
     else 0

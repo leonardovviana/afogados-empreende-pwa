@@ -16,6 +16,7 @@ const AdminLogin = lazy(() => import("./pages/AdminLogin"));
 const AdminConfirm = lazy(() => import("./pages/AdminConfirm"));
 const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const StandSelection = lazy(() => import("./pages/StandSelection"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/mapa" element={<Mapa />} />
             <Route path="/sobre" element={<Sobre />} />
             <Route path="/manual" element={<Manual />} />
+            <Route path="/escolha-seu-stand" element={<StandSelection />} />
             <Route path="/admin" element={<AdminLogin />} />
             <Route path="/admin/confirm" element={<AdminConfirm />} />
             <Route path="/admin/reset" element={<AdminResetPassword />} />
