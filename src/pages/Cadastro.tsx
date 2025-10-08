@@ -2,11 +2,13 @@ import logoFeira from "@/assets/logofeira.png";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
-import type { ExhibitorRegistrationInsert } from "@/integrations/supabase/types";
+import type { ExhibitorRegistrationInsert, RegistrationStatus } from "@/integrations/supabase/types";
 import {
     calculateTotalAmount,
     formatCurrencyBRL,
@@ -14,10 +16,15 @@ import {
   PAYMENT_UNIT_PRICES,
     type FormattedPaymentMethod,
 } from "@/lib/pricing";
+import {
+  isPushNotificationSupported,
+  requestBrowserNotificationPermission,
+  subscribeForRegistrationUpdates,
+} from "@/lib/notifications";
 import { fetchRegistrationSettings, RegistrationSettingsNotProvisionedError } from "@/lib/registration-settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Bell, CheckCircle2, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm, type FieldPath } from "react-hook-form";
 import { toast } from "sonner";
@@ -217,6 +224,11 @@ const formSchema = z
     ]),
     other_business_segment: z.string().max(200).optional(),
     stands_quantity: z.enum(STAND_OPTIONS),
+    terms_accepted: z
+      .boolean()
+      .refine((value) => value === true, {
+        message: "Você precisa aceitar os termos para enviar o cadastro.",
+      }),
   })
   .superRefine((data, ctx) => {
     const otherSegment = data.other_business_segment?.trim();
@@ -265,9 +277,20 @@ const getPaymentMethodFor = (
 const Cadastro = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [launchPricingEnabled, setLaunchPricingEnabled] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+  const [subscribingNotifications, setSubscribingNotifications] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [newRegistrationContext, setNewRegistrationContext] = useState<{
+    id: string;
+    cpfDigits: string;
+    status: RegistrationStatus;
+    companyName: string;
+  } | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -280,6 +303,7 @@ const Cadastro = () => {
       business_segment: undefined,
       other_business_segment: "",
       stands_quantity: "1",
+      terms_accepted: false,
     },
   });
 
@@ -289,6 +313,19 @@ const Cadastro = () => {
     "responsible_name",
     "phone",
   ];
+
+  const secondStepFields: FieldPath<FormData>[] = [
+    "company_size",
+    "business_segment",
+    "other_business_segment",
+    "stands_quantity",
+  ];
+
+  const stepLabels: Record<1 | 2 | 3, string> = {
+    1: "Dados da empresa",
+    2: "Detalhes da participação",
+    3: "Termo de aceite",
+  };
 
   useEffect(() => {
     let active = true;
@@ -353,15 +390,27 @@ const Cadastro = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const supported = isPushNotificationSupported();
+    setPushSupported(supported);
+
+    if (supported && typeof Notification !== "undefined") {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
   const handleNextStep = async () => {
-    const isValid = await form.trigger(firstStepFields);
+    const isValid = await form.trigger(firstStepFields, { shouldFocus: true });
     if (isValid) {
       setStep(2);
     }
   };
 
-  const handlePreviousStep = () => {
-    setStep(1);
+  const handleSecondStepNext = async () => {
+    const isValid = await form.trigger(secondStepFields, { shouldFocus: true });
+    if (isValid) {
+      setStep(3);
+    }
   };
 
   const standsQuantity = Number.parseInt(form.watch("stands_quantity") ?? "1", 10) || 1;
@@ -390,6 +439,65 @@ const Cadastro = () => {
       ? "Promoção Lançamento ativa: primeiro stand por R$ 700,00."
       : "Valor padrão por stand: R$ 850,00.";
   }, [launchPricingEnabled, settingsLoading, standsQuantity]);
+
+
+  const promptNotificationPermission = async (): Promise<NotificationPermission> => {
+    if (!pushSupported) {
+      setPushError("Este dispositivo não suporta notificações push.");
+      return "denied";
+    }
+
+    try {
+      const permission = await requestBrowserNotificationPermission();
+      setNotificationPermission(permission);
+
+      if (permission === "denied") {
+        setPushError(
+          "Permita notificações do navegador para receber avisos das próximas etapas. Você pode ajustar isso nas configurações do dispositivo."
+        );
+      }
+
+      return permission;
+    } catch (error) {
+      console.error("Erro ao solicitar permissão de notificação:", error);
+      setPushError("Não foi possível solicitar permissão de notificação.");
+      return "denied";
+    }
+  };
+
+  const handleActivateNotifications = async () => {
+    if (!newRegistrationContext) return;
+
+    setPushError(null);
+
+    if (!pushSupported) {
+      setPushError("Este dispositivo não suporta notificações push.");
+      return;
+    }
+
+    const permission = await promptNotificationPermission();
+    if (permission !== "granted") {
+      toast.error("Notificações bloqueadas. Ajuste as permissões do navegador para ativar.");
+      return;
+    }
+
+    try {
+      setSubscribingNotifications(true);
+      await subscribeForRegistrationUpdates({
+        registrationId: newRegistrationContext.id,
+        cpfDigits: newRegistrationContext.cpfDigits,
+        status: newRegistrationContext.status,
+        companyName: newRegistrationContext.companyName,
+      });
+      setNotificationsEnabled(true);
+      toast.success("Tudo pronto! Avisaremos quando houver novidades sobre o cadastro.");
+    } catch (error) {
+      console.error("Erro ao ativar notificações:", error);
+      setPushError("Não foi possível ativar as notificações agora. Tente novamente em instantes.");
+    } finally {
+      setSubscribingNotifications(false);
+    }
+  };
 
 
   const onSubmit = async (data: FormData) => {
@@ -443,9 +551,19 @@ const Cadastro = () => {
 
       let usedFallbackInsert = false;
 
-      const { error: insertError } = await supabase
+      type InsertedRegistration = {
+        id: string;
+        status: RegistrationStatus;
+        company_name: string;
+      };
+
+      let insertedRecord: InsertedRegistration | null = null;
+
+      const { data: insertedData, error: insertError } = await supabase
         .from("exhibitor_registrations")
-        .insert([insertPayload as never]);
+        .insert([insertPayload as never])
+        .select("id, status, company_name")
+        .maybeSingle<InsertedRegistration>();
 
       if (insertError) {
         if (isMissingColumnError(insertError)) {
@@ -456,18 +574,23 @@ const Cadastro = () => {
 
           const { cpf_cnpj_normalized: _ignored, ...fallbackPayload } = insertPayload;
 
-          const { error: retryError } = await supabase
+          const { data: retryData, error: retryError } = await supabase
             .from("exhibitor_registrations")
-            .insert([fallbackPayload as never]);
+            .insert([fallbackPayload as never])
+            .select("id, status, company_name")
+            .maybeSingle<InsertedRegistration>();
 
           if (retryError) {
             throw retryError;
           }
 
           usedFallbackInsert = true;
+          insertedRecord = retryData;
         } else {
           throw insertError;
         }
+      } else {
+        insertedRecord = insertedData;
       }
 
       toast.success("Cadastro realizado com sucesso!", {
@@ -478,6 +601,20 @@ const Cadastro = () => {
         toast.warning("Configure o banco para evitar cadastros duplicados", {
           description: "Execute a migration 20251002153000_add_cpf_cnpj_normalized.sql no Supabase para habilitar a deduplicação automática.",
         });
+      }
+
+      if (insertedRecord) {
+        setNewRegistrationContext({
+          id: insertedRecord.id,
+          status: insertedRecord.status,
+          companyName: insertedRecord.company_name,
+          cpfDigits: normalizedDocument,
+        });
+        setNotificationsEnabled(false);
+        setPushError(null);
+      } else {
+        console.warn("Não foi possível recuperar o registro recém-criado para notificações push.");
+        setNewRegistrationContext(null);
       }
 
       setSubmitted(true);
@@ -529,14 +666,8 @@ const Cadastro = () => {
                   className="space-y-6"
                 >
                   <div className="flex items-center justify-between rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm text-primary">
-                    <span className="font-medium">
-                      {step === 1 ? "Etapa 1 de 2" : "Etapa 2 de 2"}
-                    </span>
-                    <span>
-                      {step === 1
-                        ? "Dados da empresa"
-                        : "Detalhes da participação"}
-                    </span>
+                    <span className="font-medium">Etapa {step} de 3</span>
+                    <span>{stepLabels[step]}</span>
                   </div>
 
                   {step === 1 ? (
@@ -616,7 +747,7 @@ const Cadastro = () => {
                         Avançar para detalhes
                       </Button>
                     </div>
-                  ) : (
+                  ) : step === 2 ? (
                     <div className="space-y-6">
                       <FormField
                         control={form.control}
@@ -740,7 +871,90 @@ const Cadastro = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={handlePreviousStep}
+                          onClick={() => setStep(1)}
+                          className="md:w-1/3"
+                        >
+                          Voltar
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={handleSecondStepNext}
+                          className="w-full bg-gradient-to-r from-secondary to-secondary-light hover:from-secondary-light hover:to-secondary shadow-mega text-white font-bold rounded-2xl relative overflow-hidden group md:w-2/3"
+                          size="lg"
+                          disabled={loading}
+                        >
+                          <span className="relative z-10">Avançar para o termo</span>
+                          <div className="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-primary text-center uppercase tracking-wide">
+                          TERMO DE ACEITE – 8ª FEIRA DE EMPREENDEDORISMO
+                        </h3>
+                        <ScrollArea className="max-h-[320px] rounded-3xl border border-primary/20 bg-white/80 p-5 shadow-inner">
+                          <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+                            <p>
+                              Declaro que li e concordo com as normas do Manual do Expositor, comprometendo-me a:
+                            </p>
+                            <ul className="list-disc space-y-2 pl-5">
+                              <li>
+                                Cumprir todos os prazos e horários estabelecidos para montagem, funcionamento (17h às 23h) e desmontagem do stand, garantindo presença durante todo o evento;
+                              </li>
+                              <li>Utilizar corretamente o stand padrão e devolver o material em perfeito estado;</li>
+                              <li>Garantir a presença de representantes maiores de 16 anos, devidamente identificados com credencial;</li>
+                              <li>Manter a limpeza, organização e segurança do stand durante toda a feira;</li>
+                              <li>
+                                Não é permitida a exposição, colocação de produtos, materiais promocionais, mobiliários ou decorações fora dos limites do stand.
+                              </li>
+                              <li>É terminantemente proibido manter veículos no local do evento após as 18h.</li>
+                              <li>Evitar poluição sonora e utilizar som apenas voltado para o interior do stand;</li>
+                              <li>Cumprir as normas da Vigilância Sanitária, caso haja manipulação ou oferta de alimentos;</li>
+                              <li>Não retirar produtos ou materiais antes do encerramento oficial do evento;</li>
+                              <li>Efetuar o pagamento das taxas via DAM emitido pela Prefeitura.</li>
+                            </ul>
+                            <p>
+                              Estou ciente de que o descumprimento das regras poderá acarretar penalidades e que a organização não se responsabiliza por perdas, danos, furtos ou incidentes.
+                            </p>
+                            <p className="text-xs text-muted-foreground/80">
+                              Afogados da Ingazeira, PE – 8ª Feira de Empreendedorismo 2025
+                            </p>
+                          </div>
+                        </ScrollArea>
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="terms_accepted"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormControl>
+                              <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                <Checkbox
+                                  id="terms-accepted"
+                                  checked={field.value}
+                                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                                  className="mt-1"
+                                />
+                                <label htmlFor="terms-accepted" className="text-sm leading-relaxed text-muted-foreground">
+                                  <span className="mb-1 block font-semibold text-primary uppercase">Li e aceito os termos</span>
+                                  Ao marcar esta opção, declaro que estou ciente e de acordo com todas as condições descritas acima.
+                                </label>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="flex flex-col gap-3 md:flex-row md:justify-between">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setStep(2)}
                           className="md:w-1/3"
                         >
                           Voltar
@@ -770,7 +984,7 @@ const Cadastro = () => {
                 </form>
               </Form>
             ) : (
-              <div className="flex flex-col items-center text-center space-y-4 py-10">
+              <div className="flex flex-col items-center text-center space-y-5 py-10">
                 <div className="inline-flex rounded-full bg-secondary/10 p-4 text-secondary">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
@@ -778,6 +992,69 @@ const Cadastro = () => {
                 <p className="max-w-md text-sm text-muted-foreground">
                   Recebemos os seus dados com sucesso. Nossa equipe entrará em contato para confirmar os próximos passos. Para registrar outro expositor, atualize a página.
                 </p>
+                {newRegistrationContext ? (
+                  pushSupported ? (
+                    <div className="w-full max-w-md rounded-3xl border border-primary/15 bg-primary/5 p-5 shadow-sm">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                          <Bell className="h-4 w-4" />
+                          Fique por dentro das próximas etapas
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Ative as notificações push para receber avisos quando houver atualizações sobre seu cadastro.
+                        </p>
+                        <Button
+                          type="button"
+                          onClick={handleActivateNotifications}
+                          disabled={
+                            subscribingNotifications ||
+                            notificationsEnabled ||
+                            notificationPermission === "denied"
+                          }
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                        >
+                          {subscribingNotifications ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Bell className="h-4 w-4" />
+                          )}
+                          {subscribingNotifications
+                            ? "Ativando..."
+                            : notificationsEnabled
+                              ? "Notificações ativadas"
+                              : notificationPermission === "denied"
+                                ? "Notificações bloqueadas"
+                                : "Ativar notificações"}
+                        </Button>
+                        {notificationPermission === "denied" && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              toast.info(
+                                "Ajuste as permissões do site nas configurações do navegador para permitir notificações."
+                              )
+                            }
+                            className="text-[11px] text-primary underline decoration-dotted"
+                          >
+                            Como liberar notificações?
+                          </button>
+                        )}
+                        {pushError && (
+                          <p className="text-[11px] text-destructive">{pushError}</p>
+                        )}
+                        {notificationsEnabled && (
+                          <p className="text-[11px] text-emerald-700">
+                            Tudo pronto! Você será avisado(a) assim que o status mudar.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground max-w-sm">
+                      O seu navegador não suporta notificações push. Acesse pelo celular ou outro navegador para receber alertas.
+                    </p>
+                  )
+                ) : null}
                 <Button variant="outline" onClick={() => window.location.reload()}>
                   Recarregar página
                 </Button>

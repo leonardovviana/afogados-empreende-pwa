@@ -446,20 +446,21 @@ const StandSelection = () => {
                             })}
                           </div>
                         )}
-                        <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-                          <span>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
+                          <span className="text-center sm:text-left">
                             Selecionados: {selectedChoices.length}/{maxSelectable}
                           </span>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                             <Button
                               type="button"
                               variant="ghost"
-                              className="text-muted-foreground"
+                              className="w-full text-muted-foreground sm:w-auto"
                               onClick={() => setSelectedChoices([])}
                             >
                               Limpar seleção
                             </Button>
                             <Button
+                              className="w-full sm:w-auto"
                               onClick={() => void handleSubmitChoices()}
                               disabled={submittingChoices || selectedChoices.length !== maxSelectable}
                             >

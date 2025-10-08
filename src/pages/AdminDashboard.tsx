@@ -2,6 +2,14 @@ import logoShield from "@/assets/logoescudo.png";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -39,15 +47,17 @@ import {
 import { buildBoletoFilePath } from "@/lib/storage";
 import {
   STAND_SELECTION_DURATION_MINUTES,
+  buildStandRange,
   computeStandSelectionStatus,
   openStandSelectionWindow,
   parseStandChoices,
+  serializeStandChoices,
   triggerStandSelectionNotification,
   type StandSelectionRegistration,
   type StandSelectionStatus,
 } from "@/lib/stand-selection";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { BellRing, Clock, Download, Loader2, LogOut, RefreshCw, Search, Send, Trash2, UploadCloud } from "lucide-react";
+import { BellRing, Clock, Download, Edit3, Loader2, LogOut, RefreshCw, Search, Send, Trash2, UploadCloud } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -283,6 +293,12 @@ const AdminDashboard = () => {
   const [standWindowForm, setStandWindowForm] = useState<Record<string, { slotStart: string; slotEnd: string; duration: string }>>({});
   const [standWindowSubmittingId, setStandWindowSubmittingId] = useState<string | null>(null);
   const [standNotificationId, setStandNotificationId] = useState<string | null>(null);
+  const [editingSelectionState, setEditingSelectionState] = useState<{
+    registration: Registration;
+    range: number[];
+  } | null>(null);
+  const [editingSelectionChoices, setEditingSelectionChoices] = useState<number[]>([]);
+  const [editingSelectionSubmitting, setEditingSelectionSubmitting] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const navigate = useNavigate();
 
@@ -737,6 +753,98 @@ const AdminDashboard = () => {
       return value;
     }
   }, []);
+
+  const closeEditingSelection = useCallback(() => {
+    setEditingSelectionState(null);
+    setEditingSelectionChoices([]);
+    setEditingSelectionSubmitting(false);
+  }, []);
+
+  const handleOpenEditingSelection = useCallback(
+    (registration: Registration) => {
+      const range = buildStandRange(
+        registration.stand_selection_slot_start,
+        registration.stand_selection_slot_end
+      );
+      const currentChoices = registration.stand_selection_choices
+        ? parseStandChoices(registration.stand_selection_choices)
+        : [];
+
+      setEditingSelectionState({ registration, range });
+      setEditingSelectionChoices(currentChoices);
+      setEditingSelectionSubmitting(false);
+    },
+    []
+  );
+
+  const handleToggleEditingChoice = useCallback(
+    (value: number) => {
+      setEditingSelectionChoices((current) => {
+        if (current.includes(value)) {
+          return current.filter((item) => item !== value);
+        }
+
+        const sorted = [...current, value].sort((a, b) => a - b);
+        const maxSelectable = editingSelectionState?.registration.stands_quantity ?? 0;
+
+        if (maxSelectable > 0 && sorted.length > maxSelectable) {
+          return current;
+        }
+
+        return sorted;
+      });
+    },
+    [editingSelectionState?.registration.stands_quantity]
+  );
+
+  const handleClearEditingChoices = useCallback(() => {
+    setEditingSelectionChoices([]);
+  }, []);
+
+  const handleSaveEditingSelection = useCallback(async () => {
+    if (!editingSelectionState) {
+      return;
+    }
+
+    const required = editingSelectionState.registration.stands_quantity ?? 0;
+    if (required > 0 && editingSelectionChoices.length !== required) {
+      toast.error(
+        `Selecione exatamente ${required} stand${required > 1 ? "s" : ""} para salvar as alterações.`
+      );
+      return;
+    }
+
+    setEditingSelectionSubmitting(true);
+    try {
+      const serializedChoices = serializeStandChoices(editingSelectionChoices);
+      const nowIso = new Date().toISOString();
+
+      const { error } = await supabase
+        .from("exhibitor_registrations")
+        .update({
+          stand_selection_choices: serializedChoices || null,
+          stand_selection_submitted_at: serializedChoices ? nowIso : null,
+          updated_at: nowIso,
+        })
+        .eq("id", editingSelectionState.registration.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Escolha de stand atualizada com sucesso.");
+      await fetchDashboardData();
+      closeEditingSelection();
+    } catch (error) {
+      console.error("Erro ao atualizar escolha de stand:", error);
+      if (isPostgrestError(error)) {
+        toast.error("Não foi possível atualizar as escolhas.", { description: error.message });
+      } else {
+        toast.error("Não foi possível atualizar as escolhas. Tente novamente.");
+      }
+      setEditingSelectionSubmitting(false);
+    }
+  }, [closeEditingSelection, editingSelectionChoices, editingSelectionState, fetchDashboardData]);
 
   const handleStandWindowInputChange = useCallback(
     (registrationId: string, field: "slotStart" | "slotEnd" | "duration") =>
@@ -1643,6 +1751,7 @@ const AdminDashboard = () => {
                           <TableHead>Escolha enviada</TableHead>
                           <TableHead>Janela registrada</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead className="w-[200px]">Ações</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1704,6 +1813,28 @@ const AdminDashboard = () => {
                                   >
                                     {STAND_SELECTION_STATUS_LABELS[standStatus]}
                                   </Badge>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="justify-start gap-2"
+                                    onClick={() => handleOpenEditingSelection(registration)}
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                    Editar escolhas
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="justify-start gap-2 text-muted-foreground"
+                                    onClick={() => void handleOpenStandSelectionWindow(registration)}
+                                  >
+                                    <Clock className="h-4 w-4" />
+                                    Reabrir janela
+                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -1938,6 +2069,107 @@ const AdminDashboard = () => {
           </div>
         </div>
       </main>
+
+      <Dialog open={Boolean(editingSelectionState)} onOpenChange={(open) => {
+        if (!open) {
+          closeEditingSelection();
+        }
+      }}>
+        <DialogContent className="max-w-3xl space-y-5">
+          <DialogHeader>
+            <DialogTitle>Editar escolha de stands</DialogTitle>
+            <DialogDescription>
+              Ajuste manualmente os stands selecionados para este expositor. As alterações são aplicadas imediatamente após salvar.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingSelectionState ? (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+                <div className="font-semibold text-primary text-base">
+                  {editingSelectionState.registration.company_name}
+                </div>
+                <div>CPF/CNPJ: {editingSelectionState.registration.cpf_cnpj}</div>
+                <div>
+                  Intervalo liberado: {editingSelectionState.range.length > 0
+                    ? `${editingSelectionState.registration.stand_selection_slot_start ?? "?"}-${editingSelectionState.registration.stand_selection_slot_end ?? "?"}`
+                    : "—"}
+                </div>
+                <div>
+                  Quantidade esperada: {editingSelectionState.registration.stands_quantity} stand{editingSelectionState.registration.stands_quantity > 1 ? "s" : ""}
+                </div>
+              </div>
+
+              {editingSelectionState.range.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                    {editingSelectionState.range.map((value) => {
+                      const isSelected = editingSelectionChoices.includes(value);
+                      return (
+                        <Button
+                          key={value}
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          className={`h-12 ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-primary/30"}`}
+                          onClick={() => handleToggleEditingChoice(value)}
+                          disabled={editingSelectionSubmitting}
+                        >
+                          {value}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                      Selecionados: {editingSelectionChoices.length}/{editingSelectionState.registration.stands_quantity}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="sm:w-auto w-full text-muted-foreground"
+                      onClick={handleClearEditingChoices}
+                      disabled={editingSelectionSubmitting || editingSelectionChoices.length === 0}
+                    >
+                      Limpar seleção
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                  Defina primeiro o intervalo de stands (início e fim) antes de editar as escolhas deste expositor.
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2 sm:gap-3">
+            <Button type="button" variant="outline" onClick={closeEditingSelection} disabled={editingSelectionSubmitting}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSaveEditingSelection()}
+              disabled={
+                editingSelectionSubmitting ||
+                !editingSelectionState ||
+                editingSelectionState.range.length === 0 ||
+                (editingSelectionState.registration.stands_quantity > 0 &&
+                  editingSelectionChoices.length !== editingSelectionState.registration.stands_quantity)
+              }
+              className="min-w-[180px]"
+            >
+              {editingSelectionSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar alterações"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

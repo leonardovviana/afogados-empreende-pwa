@@ -45,6 +45,13 @@ type NotifyStandSelectionRequest = {
   reminder?: boolean;
 };
 
+const convertToTimeZone = (date: Date, timeZone: string) => {
+  const localeString = date.toLocaleString("en-US", { timeZone });
+  const zonedDate = new Date(localeString);
+  const diff = date.getTime() - zonedDate.getTime();
+  return new Date(date.getTime() - diff);
+};
+
 const formatDeadline = (deadlineIso: string | null | undefined) => {
   if (!deadlineIso) return null;
   try {
@@ -53,15 +60,32 @@ const formatDeadline = (deadlineIso: string | null | undefined) => {
       return null;
     }
 
+    const zonedDate = convertToTimeZone(deadline, DISPLAY_TIMEZONE);
     const formatter = new Intl.DateTimeFormat("pt-BR", {
-      timeZone: DISPLAY_TIMEZONE,
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
 
-    return formatter.format(deadline);
+    const parts = formatter.formatToParts(zonedDate).reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== "literal") {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    }, {});
+
+    const day = parts.day ?? "";
+    const month = parts.month ?? "";
+    const hour = parts.hour ?? "";
+    const minute = parts.minute ?? "";
+
+    if (!day || !month || !hour || !minute) {
+      return formatter.format(zonedDate);
+    }
+
+    return `${day}/${month} às ${hour}:${minute}`;
   } catch (error) {
     console.warn("Failed to format deadline", error);
     return null;
