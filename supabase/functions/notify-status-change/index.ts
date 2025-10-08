@@ -27,7 +27,8 @@ type RegistrationStatus =
   | "Pendente"
   | "Aguardando pagamento"
   | "Participação confirmada"
-  | "Cancelado";
+  | "Cancelado"
+  | "Escolha seu stand";
 
 type NotificationPayload = {
   registrationId: string;
@@ -55,6 +56,11 @@ const buildNotificationContent = (status: RegistrationStatus, companyName: strin
         title: "Participação confirmada",
         body: `${companyName} teve o pagamento validado. Prepare-se para a feira!`,
       };
+    case "Escolha seu stand":
+      return {
+        title: "Escolha de stand liberada",
+        body: `${companyName} já pode acessar o portal e selecionar o stand disponível.`,
+      };
     case "Cancelado":
       return {
         title: "Atualização de cadastro",
@@ -72,6 +78,8 @@ const buildNotificationContent = (status: RegistrationStatus, companyName: strin
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 const markSubscriptionAsRevoked = async (subscriptionId: string) => {
@@ -83,7 +91,7 @@ const markSubscriptionAsRevoked = async (subscriptionId: string) => {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: { ...corsHeaders, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   if (req.method !== "POST") {

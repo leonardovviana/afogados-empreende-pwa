@@ -842,6 +842,7 @@ const AdminDashboard = () => {
 
   const updateStatus = async (id: string, status: RegistrationStatus) => {
     try {
+      const existingRegistration = registrations.find((item) => item.id === id);
       const nowIso = new Date().toISOString();
       const { error } = await supabase
         .from("exhibitor_registrations")
@@ -864,8 +865,39 @@ const AdminDashboard = () => {
         )
       );
 
-      const registration = registrations.find((item) => item.id === id);
-      const companyName = registration?.company_name ?? "Cadastro";
+      const companyName = existingRegistration?.company_name ?? "Cadastro";
+
+      if (status === "Escolha seu stand" && existingRegistration) {
+        const expiresAt = existingRegistration.stand_selection_window_expires_at
+          ? new Date(existingRegistration.stand_selection_window_expires_at).getTime()
+          : null;
+        const hasActiveWindow =
+          existingRegistration.stand_selection_slot_start != null &&
+          existingRegistration.stand_selection_slot_end != null &&
+          existingRegistration.stand_selection_window_started_at !== null &&
+          existingRegistration.stand_selection_window_expires_at !== null &&
+          (expiresAt === null || expiresAt > Date.now());
+
+        const formValues = standWindowForm[existingRegistration.id];
+        const hasFormRange = Boolean(formValues?.slotStart && formValues?.slotEnd);
+
+        if (!hasActiveWindow) {
+          if (hasFormRange || existingRegistration.stand_selection_slot_start != null) {
+            try {
+              await handleOpenStandSelectionWindow({
+                ...existingRegistration,
+                status,
+              });
+            } catch (windowError) {
+              console.error("Falha ao abrir janela automaticamente:", windowError);
+            }
+          } else {
+            toast.warning(
+              "Defina o intervalo de stands no formulário de seleção antes de liberar a escolha."
+            );
+          }
+        }
+      }
 
       void supabase.functions
         .invoke("notify-status-change", {
