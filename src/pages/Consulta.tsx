@@ -23,17 +23,18 @@ import {
 import { buildPaymentProofFilePath } from "@/lib/storage";
 import type { PostgrestError } from "@supabase/supabase-js";
 import {
-    BadgeCheck,
-    Bell,
-    BellOff,
-    BellRing,
-    Clock3,
-    Download,
-    FileWarning,
-    Loader2,
-    Search,
-    Trash2,
-    UploadCloud
+  BadgeCheck,
+  Bell,
+  BellOff,
+  BellRing,
+  Clock3,
+  Download,
+  FileWarning,
+  Loader2,
+  Search,
+  Send,
+  Trash2,
+  UploadCloud
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -42,7 +43,8 @@ type RegistrationStatus =
   | "Pendente"
   | "Aguardando pagamento"
   | "Participação confirmada"
-  | "Cancelado";
+  | "Cancelado"
+  | "Escolha seu stand";
 
 interface Registration {
   id: string;
@@ -158,6 +160,8 @@ const STATUS_NORMALIZATION_MAP: Record<string, RegistrationStatus> = {
   aprovado: "Participação confirmada",
   recusado: "Cancelado",
   cancelado: "Cancelado",
+  "escolha seu stand": "Escolha seu stand",
+  "escolha_seu_stand": "Escolha seu stand",
 };
 
 const normalizeStatus = (status: string): RegistrationStatus => {
@@ -225,6 +229,13 @@ const Consulta = () => {
         message:
           "Seu cadastro não foi aprovado nesta edição. Entre em contato com a coordenação para entender os motivos.",
         icon: <FileWarning className="h-10 w-10 text-red-500" />,
+      },
+      "Escolha seu stand": {
+        color: "bg-sky-100 text-sky-700 border-sky-300",
+        label: "Escolha seu stand",
+        message:
+          "Sua participação está liberada para escolher o stand. Acompanhe o portal de escolha para ver a janela disponível e finalizar a seleção.",
+        icon: <Send className="h-10 w-10 text-sky-500" />,
       },
     }),
     []
