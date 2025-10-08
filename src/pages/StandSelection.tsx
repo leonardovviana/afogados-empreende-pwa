@@ -13,18 +13,16 @@ import {
   parseStandChoices,
   sanitizeDocumentDigits,
   submitStandSelection,
-  triggerStandSelectionNotification,
   type FetchRegistrationResult,
   type StandSelectionStatus,
 } from "@/lib/stand-selection";
 import {
   hasActiveSubscription,
   isPushNotificationSupported,
-  requestBrowserNotificationPermission,
-  subscribeForRegistrationUpdates,
 } from "@/lib/notifications";
-import { Bell, BellRing, CheckCircle2, Clock, Loader2, Search, ShieldCheck, Smartphone } from "lucide-react";
+import { Bell, CheckCircle2, Clock, Loader2, Lock, Search, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 interface CountdownState {
@@ -87,10 +85,7 @@ const StandSelection = () => {
   const [pushSupported, setPushSupported] = useState(false);
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
-  const [subscribingNotifications, setSubscribingNotifications] = useState(false);
-  const [sendingReminder, setSendingReminder] = useState(false);
-  const reminderIntervalRef = useRef<number | null>(null);
-  const lastReminderRef = useRef<number>(0);
+  const countdownIntervalRef = useRef<number | null>(null);
 
   const standsQuantity = registration?.registration.stands_quantity ?? 0;
   const slotStart = registration?.registration.stand_selection_slot_start ?? null;
@@ -103,10 +98,10 @@ const StandSelection = () => {
     setPushSupported(isPushNotificationSupported());
   }, []);
 
-  const clearReminderInterval = useCallback(() => {
-    if (reminderIntervalRef.current) {
-      window.clearInterval(reminderIntervalRef.current);
-      reminderIntervalRef.current = null;
+  const clearCountdownInterval = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
   }, []);
 
@@ -147,58 +142,8 @@ const StandSelection = () => {
     }
   }, [documentValue, refreshRegistration]);
 
-  const sendStandNotification = useCallback(
-    async (reminder = false, silent = false) => {
-      if (!registration || !normalizedDocument) {
-        if (!silent) {
-          toast.error("Realize uma consulta antes de enviar notificações.");
-        }
-        return;
-      }
-
-      if (
-        registration.registration.stand_selection_slot_start == null ||
-        registration.registration.stand_selection_slot_end == null
-      ) {
-        if (!silent) {
-          toast.error("Defina o intervalo de stands antes de enviar notificações.");
-        }
-        return;
-      }
-
-      try {
-        if (!silent) {
-          setSendingReminder(true);
-        }
-        await triggerStandSelectionNotification({
-          registrationId: registration.registration.id,
-          companyName: registration.registration.company_name,
-          slotStart: registration.registration.stand_selection_slot_start,
-          slotEnd: registration.registration.stand_selection_slot_end,
-          windowExpiresAt: registration.registration.stand_selection_window_expires_at,
-          standsQuantity: registration.registration.stands_quantity ?? 1,
-          reminder,
-        });
-        lastReminderRef.current = Date.now();
-        if (!silent) {
-          toast.success(reminder ? "Lembrete enviado com sucesso!" : "Notificação enviada.");
-        }
-      } catch (error) {
-        console.error("Erro ao enviar notificação de stand:", error);
-        if (!silent) {
-          toast.error("Não foi possível enviar a notificação. Tente novamente.");
-        }
-      } finally {
-        if (!silent) {
-          setSendingReminder(false);
-        }
-      }
-    },
-    [registration, normalizedDocument]
-  );
-
   useEffect(() => {
-    clearReminderInterval();
+    clearCountdownInterval();
 
     if (!registration) {
       setCountdown({ hasWindow: false, expired: false, totalSeconds: 0, display: "" });
@@ -213,32 +158,21 @@ const StandSelection = () => {
     const updateCountdown = () => {
       const next = formatCountdown(registration.registration.stand_selection_window_expires_at);
       setCountdown(next);
-
-      if (
-        subscriptionActive &&
-        normalizedDocument &&
-        registration.registration.status === "Escolha seu stand" &&
-        next.hasWindow &&
-        !next.expired &&
-        Date.now() - lastReminderRef.current >= 5 * 60 * 1000
-      ) {
-        void sendStandNotification(true, true);
-      }
     };
 
     updateCountdown();
     const intervalId = window.setInterval(updateCountdown, 1000);
-    reminderIntervalRef.current = intervalId;
+    countdownIntervalRef.current = intervalId;
 
     return () => {
       window.clearInterval(intervalId);
-      clearReminderInterval();
+      clearCountdownInterval();
     };
-  }, [registration, subscriptionActive, normalizedDocument, sendStandNotification, clearReminderInterval]);
+  }, [registration, clearCountdownInterval]);
 
   useEffect(() => () => {
-    clearReminderInterval();
-  }, [clearReminderInterval]);
+    clearCountdownInterval();
+  }, [clearCountdownInterval]);
 
   useEffect(() => {
     let active = true;
@@ -289,42 +223,6 @@ const StandSelection = () => {
     [maxSelectable]
   );
 
-  const handleSubscribeNotifications = useCallback(async () => {
-    if (!registration || !normalizedDocument) {
-      toast.error("Realize uma consulta antes de ativar as notificações.");
-      return;
-    }
-
-    if (!pushSupported) {
-      toast.error("Este dispositivo ou navegador não suporta notificações push.");
-      return;
-    }
-
-    try {
-      setSubscribingNotifications(true);
-      const permission = await requestBrowserNotificationPermission();
-      if (permission !== "granted") {
-        toast.error("É necessário permitir notificações neste navegador.");
-        return;
-      }
-
-      await subscribeForRegistrationUpdates({
-        registrationId: registration.registration.id,
-        cpfDigits: normalizedDocument,
-        status: registration.registration.status,
-        companyName: registration.registration.company_name,
-      });
-
-      setSubscriptionActive(true);
-      toast.success("Notificações ativadas com sucesso!");
-    } catch (error) {
-      console.error("Erro ao ativar notificações:", error);
-      toast.error("Não foi possível ativar as notificações. Tente novamente.");
-    } finally {
-      setSubscribingNotifications(false);
-    }
-  }, [registration, normalizedDocument, pushSupported]);
-
   const handleSubmitChoices = useCallback(async () => {
     if (!registration) {
       toast.error("Faça uma consulta antes de selecionar os stands.");
@@ -342,7 +240,6 @@ const StandSelection = () => {
         finalizeStatus: "Participação confirmada",
       });
       toast.success("Escolha registrada com sucesso!");
-      lastReminderRef.current = Date.now();
       await refreshRegistration(normalizedDocument ?? "");
     } catch (error) {
       console.error("Erro ao enviar escolha de stand:", error);
@@ -421,7 +318,6 @@ const StandSelection = () => {
   }, [registration]);
 
   const selectionEnabled = selectionStatus === "active" && standRange.length > 0 && !countdown.expired;
-  const canSendReminder = subscriptionActive && selectionStatus === "active" && !countdown.expired;
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-sand">
@@ -502,6 +398,16 @@ const StandSelection = () => {
                           <strong>Escolha registrada:</strong> {recordedChoices.join(", ")}
                         </div>
                       ) : null}
+                      {selectionStatus === "idle" ? (
+                        <Alert className="border-primary/20 bg-primary/5">
+                          <Lock className="h-4 w-4 text-primary" />
+                          <AlertTitle>Janela não liberada</AlertTitle>
+                          <AlertDescription>
+                            O cadastro ainda não foi liberado para escolher o stand. Aguarde a equipe alterar o status
+                            para <strong>Escolha seu stand</strong> e retorne com este mesmo CPF/CNPJ.
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
                     </CardContent>
                   </Card>
 
@@ -572,78 +478,48 @@ const StandSelection = () => {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Notificações</CardTitle>
+                      <CardTitle>Notificações automáticas</CardTitle>
                       <CardDescription>
-                        Receba alertas push a cada 5 minutos enquanto a janela estiver ativa para não perder o prazo.
+                        Lembretes push são enviados de 5 em 5 minutos enquanto a janela estiver ativa e o cadastro ainda não tiver escolhido o stand.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {!pushSupported ? (
                         <Alert className="border-amber-200 bg-amber-50">
-                          <Smartphone className="h-4 w-4 text-amber-600" />
-                          <AlertTitle>Recurso indisponível</AlertTitle>
+                          <Bell className="h-4 w-4 text-amber-600" />
+                          <AlertTitle>Ative em outro dispositivo</AlertTitle>
                           <AlertDescription>
-                            Este dispositivo ou navegador não suporta notificações push. Recomendamos ativar em outro dispositivo.
+                            Este navegador não suporta notificações push. Consulte o cadastro em um aparelho compatível para receber os alertas automáticos.
                           </AlertDescription>
                         </Alert>
                       ) : (
-                        <div className="space-y-3">
-                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        <div className="space-y-3 text-sm text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-3">
                             <Badge className={subscriptionActive ? "bg-primary" : "bg-muted text-muted-foreground"}>
-                              {subscriptionActive ? "Notificações ativas" : "Notificações inativas"}
+                              {subscriptionActive ? "Este dispositivo receberá lembretes" : "Nenhum lembrete neste dispositivo"}
                             </Badge>
-                            {checkingSubscription ? "Verificando inscrição..." : null}
+                            {checkingSubscription ? (
+                              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Verificando inscrição...
+                              </span>
+                            ) : null}
                           </div>
-                          {!subscriptionActive ? (
-                            <Button
-                              onClick={() => void handleSubscribeNotifications()}
-                              disabled={subscribingNotifications}
-                              className="flex items-center gap-2"
-                            >
-                              {subscribingNotifications ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Bell className="h-4 w-4" />
-                              )}
-                              Ativar notificações
-                            </Button>
+                          {subscriptionActive ? (
+                            <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                              <Bell className="h-5 w-5 text-primary" />
+                              <p>
+                                Você já ativou as notificações deste CPF/CNPJ. Os alertas continuam automáticos e serão reenviados enquanto a janela estiver
+                                aberta.
+                              </p>
+                            </div>
                           ) : (
-                            <div className="flex flex-col gap-3">
-                              <Button
-                                variant="outline"
-                                onClick={() => void sendStandNotification(false)}
-                                disabled={sendingReminder}
-                                className="flex items-center gap-2"
-                              >
-                                {sendingReminder ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Bell className="h-4 w-4" />
-                                )}
-                                Enviar lembrete agora
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                onClick={() => void sendStandNotification(true)}
-                                disabled={sendingReminder || !canSendReminder}
-                                className="flex items-center gap-2 text-muted-foreground"
-                              >
-                                {sendingReminder ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <BellRing className="h-4 w-4" />
-                                )}
-                                Reenviar lembrete manualmente
-                              </Button>
-                              {!canSendReminder ? (
-                                <p className="text-xs text-muted-foreground">
-                                  Os lembretes automáticos serão enviados quando a janela estiver ativa e dentro do prazo.
-                                </p>
-                              ) : (
-                                <p className="text-xs text-muted-foreground">
-                                  Um lembrete é disparado automaticamente a cada 5 minutos até que a escolha seja registrada.
-                                </p>
-                              )}
+                            <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
+                              <p>
+                                Para receber os lembretes automáticos, acesse a página de <Link to="/consulta" className="underline underline-offset-2 text-primary">consulta</Link> com este CPF/CNPJ, ative as notificações uma vez e mantenha-as habilitadas.
+                              </p>
+                              <p className="text-xs">
+                                Depois de ativadas, o sistema continua enviando lembretes automáticos em todos os dispositivos autorizados.
+                              </p>
                             </div>
                           )}
                         </div>

@@ -25,6 +25,9 @@ if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 webpush.setVapidDetails(VAPID_CONTACT, VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
 
+const DISPLAY_TIMEZONE =
+  Deno.env.get("STAND_SELECTION_TIMEZONE") ?? Deno.env.get("TIMEZONE") ?? "America/Recife";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -46,12 +49,19 @@ const formatDeadline = (deadlineIso: string | null | undefined) => {
   if (!deadlineIso) return null;
   try {
     const deadline = new Date(deadlineIso);
-    return deadline.toLocaleString("pt-BR", {
+    if (Number.isNaN(deadline.getTime())) {
+      return null;
+    }
+
+    const formatter = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: DISPLAY_TIMEZONE,
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
+
+    return formatter.format(deadline);
   } catch (error) {
     console.warn("Failed to format deadline", error);
     return null;

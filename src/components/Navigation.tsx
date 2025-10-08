@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { name: "Início", path: "/" },
   { name: "Cadastro", path: "/cadastro" },
   { name: "Consulta", path: "/consulta" },
+  { name: "Escolha seu stand", path: "/escolha-seu-stand" },
   { name: "Mapa", path: "/mapa" },
   { name: "Sobre", path: "/sobre" },
   { name: "Manual", path: "/manual" },

@@ -67,6 +67,25 @@ Armazene a chave pública no arquivo `.env` e mantenha a chave privada em um loc
 3. Configure o worker/serviço responsável por observar mudanças na tabela `exhibitor_registrations` e enviar notificações push (ver função `supabase/functions/notify-status-change`). Defina as variáveis de ambiente `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e, opcionalmente, `VAPID_CONTACT_EMAIL` antes de publicar a função.
 4. Após o deploy, os usuários poderão consentir com os alertas diretamente na página de consulta e passam a receber avisos quando o status for atualizado.
 
+### ⏰ Agendamento dos lembretes automáticos de stand
+
+Para que a função `stand-selection-reminders` execute a cada 5 minutos e mantenha os alertas em dia:
+
+1. **Garanta que a função esteja publicada**
+	```cmd
+	supabase functions deploy stand-selection-reminders --no-verify-jwt
+	```
+	> O comando acima usa o Supabase CLI autenticado no projeto. Certifique-se de que as variáveis `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` e `VAPID_CONTACT_EMAIL` estejam definidas no ambiente da função (via `supabase functions secrets set` ou painel).
+2. **Crie um agendamento (Job Scheduler)**
+	 - Pelo painel: acesse **Project Settings › Edge Functions › Schedules**, clique em **New schedule**, selecione `stand-selection-reminders` e defina o cron `*/5 * * * *` (a cada 5 minutos). Salve para ativar.
+	 - Pelo CLI (alternativa, CLI ≥ 1.154):
+		 ```cmd
+		 supabase functions schedule create stand-selection-reminders --cron "*/5 * * * *"
+		 ```
+3. **Monitore os disparos** no painel de funções (logs) e ajuste o cron se precisar de janelas diferentes por ambiente (ex.: homologação com intervalos maiores).
+
+> Enquanto houver inscrições com janela ativa e sem stand escolhido, o agendamento chamará automaticamente `notify-stand-selection` e reenviará os lembretes push.
+
 ## 📁 Estrutura destacada
 
 ```
