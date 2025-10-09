@@ -182,14 +182,6 @@ const Home = () => {
                 </div>
 
                 <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Link to="/cadastro" className="w-full sm:w-auto">
-                    <Button
-                      size="lg"
-                      className="w-full rounded-2xl bg-gradient-to-r from-secondary via-secondary-light to-accent px-10 py-6 text-base font-semibold shadow-mega transition hover:from-secondary-light hover:via-secondary hover:to-secondary sm:w-auto"
-                    >
-                      Garanta seu estande
-                    </Button>
-                  </Link>
                   {!salesClosed ? (
                     <Link to="/cadastro" className="w-full sm:w-auto">
                       <Button
@@ -199,7 +191,16 @@ const Home = () => {
                         Garanta seu estande
                       </Button>
                     </Link>
-                  ) : null}
+                  ) : (
+                    <Link to="/consulta" className="w-full sm:w-auto">
+                      <Button
+                        size="lg"
+                        className="w-full rounded-2xl bg-primary/10 px-10 py-6 text-base font-semibold text-primary shadow-mega transition hover:bg-primary/20 sm:w-auto"
+                      >
+                        Acompanhe sua inscrição
+                      </Button>
+                    </Link>
+                  )}
                   <Link to="/manual" className="w-full sm:w-auto">
                     <Button
                       variant="outline"
