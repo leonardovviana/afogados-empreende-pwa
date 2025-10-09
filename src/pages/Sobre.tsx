@@ -3,6 +3,7 @@ import heroBg2 from "@/assets/hero-bg2.jpg";
 import heroBg3 from "@/assets/hero-bg3.jpg";
 import logoAfogados from "@/assets/logoaf.png";
 import logoCdl from "@/assets/logocdl.png";
+import logoSala from "@/assets/logosala.png";
 import logoSebrae from "@/assets/logosebrae.png";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
@@ -172,6 +173,7 @@ const timeline = [
 const supporters = [
   { name: "Prefeitura de Afogados da Ingazeira", logo: logoAfogados },
   { name: "SEBRAE", logo: logoSebrae },
+  { name: "Sala do Empreendedor", logo: logoSala },
   { name: "CDL Afogados", logo: logoCdl },
 ];
 
