@@ -9,25 +9,25 @@ import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { getMixedPhotoEntries } from "@/lib/photos";
 import {
-    Award,
-    Building2,
+  Award,
+  Blocks,
+  Building2,
   CalendarCheck,
-  Clock3,
   ChevronLeft,
   ChevronRight,
+  Clock3,
+  ExternalLink,
   MapPin,
   Mic2,
   Music2,
-  PlayCircle,
-  ExternalLink,
   Newspaper,
+  PlayCircle,
   ShieldCheck,
   Sparkles,
   TrendingUp,
   Tv,
   Users,
   UtensilsCrossed,
-  Blocks,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -124,23 +124,23 @@ const pillars = [
 const mediaHighlights = [
   {
     icon: PlayCircle,
-    title: "Playlist oficial na ELO TV",
+    title: "Cobertura oficial na ELLO TV",
     description: "Assista aos principais momentos da feira produzidos pela equipe da ELO TV.",
-    href: "https://www.youtube.com/@elotvafogados",
-    cta: "Abrir playlist",
+    href: "https://www.youtube.com/watch?v=bBDmM-ASh9o",
+    cta: "Assistir vídeo",
   },
   {
     icon: Sparkles,
-    title: "Cobertura no Instagram",
-    description: "Bastidores, entrevistas e conteúdos exclusivos direto do perfil da feira.",
-    href: "https://www.instagram.com/afogadosempreende/",
+    title: "Nosso Instagram",
+    description: "Bastidores, entrevistas e conteúdos exclusivos direto do nosso perfil.",
+    href: "https://instagram.com/sadetur_afdaingazeira",
     cta: "Seguir no Instagram",
   },
   {
     icon: Newspaper,
-    title: "Notícias na Prefeitura",
-    description: "Leia a publicação oficial sobre os destaques da última edição.",
-    href: "https://www.afogadosdaingazeira.pe.gov.br/noticias",
+    title: "Notícias na imprensa",
+    description: "Leia publicações sobre os destaques das edições anteriores.",
+    href: "pe.agenciasebrae.com.br/cultura-empreendedora/sebrae-impulsiona-7a-feira-de-empreendedorismo-de-afogados-da-ingazeira/",
     cta: "Ler matéria",
   },
 ];
@@ -758,7 +758,7 @@ const Sobre = () => {
                   Reservar estande agora
                 </Button>
               </Link>
-              <Link to="/contato">
+              <Link to="https://wa.me/5587999781331">
                 <Button variant="outline" className="rounded-2xl border-primary/20 px-8 py-6 text-base font-semibold text-primary hover:bg-primary/10">
                   Falar com a organização
                 </Button>

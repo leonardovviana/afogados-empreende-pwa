@@ -57,11 +57,11 @@ const Footer = () => {
             <div className="space-y-2 text-sm text-muted-foreground/80">
               <p className="flex items-center gap-2">
                 <MapPin size={18} className="text-primary" />
-                Centro Desportivo Municipal – Av. Manoel Borba, Centro • Afogados da Ingazeira - PE
+                Praça Arruda Câmara e Praça Padre Carlos Cottart, Centro • Afogados da Ingazeira - PE
               </p>
               <p className="flex items-center gap-2">
                 <CalendarDays size={18} className="text-primary" />
-                12, 13 e 14 de setembro de 2025
+                6, 7 e 8 de novembro de 2025
               </p>
             </div>
             <div className="flex items-center gap-3 pt-4">
