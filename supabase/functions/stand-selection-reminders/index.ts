@@ -1,5 +1,12 @@
-// @ts-nocheck
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
+
+// @ts-expect-error -- Remote module types are not available in the local lint environment
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// @ts-expect-error -- Remote module types are not available in the local lint environment
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0?target=deno";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("PROJECT_URL");
@@ -30,26 +37,54 @@ const minutesAgo = (minutes: number): string => {
   return new Date(now - minutes * 60 * 1000).toISOString();
 };
 
+type ActiveSubscriptionRow = {
+  registration_id: string | null;
+};
+
+type ExhibitorRegistrationRow = {
+  id: string;
+  company_name: string | null;
+  stands_quantity: number | null;
+  stand_selection_slot_start: number | null;
+  stand_selection_slot_end: number | null;
+  stand_selection_window_expires_at: string | null;
+  stand_selection_window_started_at: string | null;
+  stand_selection_notification_last_sent: string | null;
+  stand_selection_choices: unknown;
+};
+
+type NotificationResult = {
+  delivered?: number;
+  failed?: number;
+};
+
 const fetchActiveSubscriptions = async (): Promise<Set<string>> => {
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from("web_push_subscriptions")
     .select("registration_id")
     .eq("status", "active")
-    .not("registration_id", "is", null);
+    .not("registration_id", "is", null)) as {
+    data: ActiveSubscriptionRow[] | null;
+    error: unknown;
+  };
 
   if (error) {
     console.error("[stand-selection-reminders] Failed to load active subscriptions", error);
     throw error;
   }
 
-  return new Set((data ?? []).map((item) => item.registration_id as string));
+  return new Set(
+    (data ?? [])
+      .map((item) => item.registration_id ?? null)
+      .filter((id): id is string => typeof id === "string" && id.length > 0)
+  );
 };
 
-const fetchEligibleRegistrations = async (activeIds: Set<string>) => {
+const fetchEligibleRegistrations = async (activeIds: Set<string>): Promise<ExhibitorRegistrationRow[]> => {
   const nowIso = new Date().toISOString();
   const sinceIso = minutesAgo(REMINDER_INTERVAL_MINUTES);
 
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from("exhibitor_registrations")
     .select(
       [
@@ -72,7 +107,10 @@ const fetchEligibleRegistrations = async (activeIds: Set<string>) => {
     .gt("stand_selection_window_expires_at", nowIso)
     .or(`stand_selection_notification_last_sent.is.null,stand_selection_notification_last_sent.lt.${sinceIso}`)
     .order("stand_selection_notification_last_sent", { ascending: true, nullsFirst: true })
-    .limit(MAX_BATCH);
+    .limit(MAX_BATCH)) as {
+    data: ExhibitorRegistrationRow[] | null;
+    error: unknown;
+  };
 
   if (error) {
     console.error("[stand-selection-reminders] Failed to load registrations", error);
@@ -82,7 +120,9 @@ const fetchEligibleRegistrations = async (activeIds: Set<string>) => {
   return (data ?? []).filter((registration) => activeIds.has(registration.id));
 };
 
-const triggerNotification = async (registration) => {
+const triggerNotification = async (
+  registration: ExhibitorRegistrationRow
+): Promise<NotificationResult> => {
   try {
     const response = await fetch(NOTIFY_ENDPOINT, {
       method: "POST",
@@ -111,15 +151,17 @@ const triggerNotification = async (registration) => {
       return { delivered: 0, failed: 1 };
     }
 
-    const payload = await response.json().catch(() => ({ delivered: 0, failed: 0 }));
-    return payload;
+    const payload = (await response.json().catch(() => ({ delivered: 0, failed: 0 }))) as
+      | NotificationResult
+      | undefined;
+    return payload ?? { delivered: 0, failed: 0 };
   } catch (error) {
     console.error("[stand-selection-reminders] Error invoking notify-stand-selection", error);
     return { delivered: 0, failed: 1 };
   }
 };
 
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -147,7 +189,7 @@ serve(async (req) => {
       });
     }
 
-    const registrations = await fetchEligibleRegistrations(activeIds);
+  const registrations = await fetchEligibleRegistrations(activeIds);
     let processed = 0;
     let delivered = 0;
     let failed = 0;

@@ -1,7 +1,38 @@
-// @ts-nocheck
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
+
+type PushSubscription = {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys?: Record<string, string> | undefined;
+};
+
+type WebPush = {
+  sendNotification(
+    subscription: PushSubscription,
+    payload?: string | Uint8Array,
+    options?: Record<string, unknown>
+  ): Promise<unknown>;
+  setVapidDetails(subject: string, publicKey: string, privateKey: string): void;
+};
+
+type WebPushError = Error & {
+  statusCode?: number;
+  status?: number;
+  response?: { status?: number };
+};
+
+// @ts-expect-error -- Remote module types are not available in the local lint environment
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// @ts-expect-error -- Remote module types are not available in the local lint environment
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0?target=deno";
-import webpush from "npm:web-push@3.6.7";
+// @ts-expect-error -- NPM specifier is resolved by Deno at runtime
+import webpushModule from "npm:web-push@3.6.7";
+
+const webpush = webpushModule as unknown as WebPush;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? Deno.env.get("PROJECT_URL");
 const SUPABASE_SERVICE_ROLE_KEY =
@@ -21,6 +52,16 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
   console.error("VAPID keys are missing for the notify-stand-selection function.");
 }
+
+type WebPushSubscriptionRow = {
+  id: string;
+  endpoint: string;
+  subscription: unknown;
+};
+
+type ExhibitorRegistrationRow = {
+  stand_selection_notifications_count: number | null;
+};
 
 const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 webpush.setVapidDetails(VAPID_CONTACT, VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
@@ -46,14 +87,14 @@ type NotifyStandSelectionRequest = {
   reminder?: boolean;
 };
 
-const convertToTimeZone = (date: Date, timeZone: string) => {
+const convertToTimeZone = (date: Date, timeZone: string): Date => {
   const localeString = date.toLocaleString("en-US", { timeZone });
   const zonedDate = new Date(localeString);
   const diff = date.getTime() - zonedDate.getTime();
   return new Date(date.getTime() - diff);
 };
 
-const formatDeadline = (deadlineIso: string | null | undefined) => {
+const formatDeadline = (deadlineIso: string | null | undefined): string | null => {
   if (!deadlineIso) return null;
   try {
     const deadline = new Date(deadlineIso);
@@ -101,7 +142,7 @@ const buildNotificationContent = (
   deadline: string | null,
   standsQuantity: number | null,
   reminder: boolean
-) => {
+): { title: string; body: string } => {
   const title = reminder ? "Lembrete: escolha seu stand" : "Escolha do stand liberada";
   const range = slotStart !== null && slotEnd !== null ? `${slotStart}-${slotEnd}` : null;
   const quantity = standsQuantity && standsQuantity > 0 ? standsQuantity : null;
@@ -119,14 +160,14 @@ const buildNotificationContent = (
   };
 };
 
-const markSubscriptionAsRevoked = async (subscriptionId: string) => {
+const markSubscriptionAsRevoked = async (subscriptionId: string): Promise<void> => {
   await supabase
     .from("web_push_subscriptions")
     .update({ status: "revoked", updated_at: new Date().toISOString() })
     .eq("id", subscriptionId);
 };
 
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -183,11 +224,14 @@ serve(async (req) => {
   const formattedDeadline = formatDeadline(payload.windowExpiresAt ?? null);
   const standsQuantity = typeof payload.standsQuantity === "number" ? payload.standsQuantity : null;
 
-  const { data: subscriptions, error: subscriptionsError } = await supabase
+  const { data: subscriptions, error: subscriptionsError } = (await supabase
     .from("web_push_subscriptions")
     .select("id, endpoint, subscription")
     .eq("registration_id", registrationId)
-    .eq("status", "active");
+    .eq("status", "active")) as {
+    data: WebPushSubscriptionRow[] | null;
+    error: unknown;
+  };
 
   if (subscriptionsError) {
     console.error("[notify-stand-selection] Error fetching subscriptions", subscriptionsError);
@@ -237,8 +281,9 @@ serve(async (req) => {
   await Promise.all(
     subscriptions.map(async (subscription) => {
       try {
+        const pushSubscription = subscription.subscription as PushSubscription;
         await webpush.sendNotification(
-          subscription.subscription as webpush.PushSubscription,
+          pushSubscription,
           JSON.stringify({
             notification: {
               title: notificationContent.title,
@@ -250,9 +295,17 @@ serve(async (req) => {
           })
         );
         delivered += 1;
-      } catch (error) {
+      } catch (error: unknown) {
         failed += 1;
-        const statusCode = error?.statusCode ?? error?.status ?? error?.response?.status;
+        const typedError = error as
+          | {
+              statusCode?: number;
+              status?: number;
+              response?: { status?: number };
+            }
+          | undefined;
+        const statusCode =
+          typedError?.statusCode ?? typedError?.status ?? typedError?.response?.status;
         console.error("[notify-stand-selection] Failed to send notification", {
           endpoint: subscription.endpoint,
           statusCode,
@@ -267,7 +320,7 @@ serve(async (req) => {
 
   if (delivered > 0) {
     const { data: registration, error: registrationError } = await supabase
-      .from("exhibitor_registrations")
+      .from<ExhibitorRegistrationRow>("exhibitor_registrations")
       .select("stand_selection_notifications_count")
       .eq("id", registrationId)
       .maybeSingle();

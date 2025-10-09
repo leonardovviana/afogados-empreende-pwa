@@ -4,9 +4,9 @@ import heroImage3 from "@/assets/hero-bg3.jpg";
 import Countdown from "@/components/Countdown";
 import Footer from "@/components/Footer";
 import InstallPrompt from "@/components/InstallPrompt";
-import { useSalesClosed } from "@/hooks/use-sales-closed";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
+import { useSalesClosed } from "@/hooks/use-sales-closed";
 import { getMixedPhotoUrls } from "@/lib/photos";
 import {
   ArrowRight,

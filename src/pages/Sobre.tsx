@@ -5,10 +5,10 @@ import logoAfogados from "@/assets/logoaf.png";
 import logoCdl from "@/assets/logocdl.png";
 import logoSala from "@/assets/logosala.png";
 import logoSebrae from "@/assets/logosebrae.png";
-import { useSalesClosed } from "@/hooks/use-sales-closed";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
+import { useSalesClosed } from "@/hooks/use-sales-closed";
 import { getMixedPhotoEntries } from "@/lib/photos";
 import {
   Award,
