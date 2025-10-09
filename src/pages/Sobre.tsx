@@ -5,6 +5,7 @@ import logoAfogados from "@/assets/logoaf.png";
 import logoCdl from "@/assets/logocdl.png";
 import logoSala from "@/assets/logosala.png";
 import logoSebrae from "@/assets/logosebrae.png";
+import { useSalesClosed } from "@/hooks/use-sales-closed";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
@@ -204,6 +205,7 @@ const galleryDynamicImages: GalleryImage[] = aboutPhotoEntries.map(([filePath, m
 const galleryImages: GalleryImage[] = [...galleryStaticImages, ...galleryDynamicImages];
 
 const Sobre = () => {
+  const { salesClosed } = useSalesClosed();
   const fallbackImage = useMemo<GalleryImage>(
     () => ({ src: heroBg, caption: "Registro da feira", showCaption: true }),
     []
@@ -349,11 +351,13 @@ const Sobre = () => {
                 </p>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Link to="/cadastro" className="w-full sm:w-auto">
-                    <Button className="w-full rounded-2xl bg-secondary px-8 py-6 text-base font-semibold text-secondary-foreground transition hover:bg-secondary-light focus-visible:ring-secondary sm:w-auto">
-                      Quero expor meu negócio
-                    </Button>
-                  </Link>
+                  {!salesClosed ? (
+                    <Link to="/cadastro" className="w-full sm:w-auto">
+                      <Button className="w-full rounded-2xl bg-secondary px-8 py-6 text-base font-semibold text-secondary-foreground transition hover:bg-secondary-light focus-visible:ring-secondary sm:w-auto">
+                        Quero expor meu negócio
+                      </Button>
+                    </Link>
+                  ) : null}
                   <Link to="/manual" className="w-full sm:w-auto">
                     <Button
                       variant="outline"
@@ -673,14 +677,18 @@ const Sobre = () => {
               Pronto para viver a Feira do Empreendedor por dentro?
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Garanta o seu espaço, envolva sua equipe e prepare seu estande para três noites de oportunidades. A próxima história de sucesso pode ser a sua.
+              {salesClosed
+                ? "As vendas de estandes foram encerradas nesta edição. Entre em contato com a nossa equipe para verificar oportunidades futuras."
+                : "Garanta o seu espaço, envolva sua equipe e prepare seu estande para três noites de oportunidades. A próxima história de sucesso pode ser a sua."}
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link to="/cadastro">
-                <Button className="rounded-2xl bg-secondary px-8 py-6 text-base font-semibold text-secondary-foreground transition hover:bg-secondary-light">
-                  Reservar estande agora
-                </Button>
-              </Link>
+              {!salesClosed ? (
+                <Link to="/cadastro">
+                  <Button className="rounded-2xl bg-secondary px-8 py-6 text-base font-semibold text-secondary-foreground transition hover:bg-secondary-light">
+                    Reservar estande agora
+                  </Button>
+                </Link>
+              ) : null}
               <Link to="https://wa.me/5587999781331">
                 <Button variant="outline" className="rounded-2xl border-primary/20 px-8 py-6 text-base font-semibold text-primary hover:bg-primary/10">
                   Falar com a organização

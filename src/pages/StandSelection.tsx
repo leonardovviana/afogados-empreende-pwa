@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useSalesClosed } from "@/hooks/use-sales-closed";
 import {
   hasActiveSubscription,
   isPushNotificationSupported,
@@ -21,7 +22,7 @@ import {
   type FetchRegistrationResult,
   type StandSelectionStatus,
 } from "@/lib/stand-selection";
-import { Bell, CheckCircle2, Clock, Loader2, Lock, Search, ShieldCheck, ZoomIn, ZoomOut } from "lucide-react";
+import { Bell, CheckCircle2, Clock, Download, Loader2, Lock, Search, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -82,13 +83,12 @@ const StandSelection = () => {
     display: "",
   });
   const [selectedChoices, setSelectedChoices] = useState<number[]>([]);
-  const [mapZoom, setMapZoom] = useState(1);
-  const mapZoomContainerRef = useRef<HTMLDivElement>(null);
   const [submittingChoices, setSubmittingChoices] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
   const countdownIntervalRef = useRef<number | null>(null);
+  const { salesClosed } = useSalesClosed();
 
   const standsQuantity = registration?.registration.stands_quantity ?? 0;
   const slotStart = registration?.registration.stand_selection_slot_start ?? null;
@@ -182,14 +182,6 @@ const StandSelection = () => {
   }, [clearCountdownInterval]);
 
   useEffect(() => {
-    if (!mapZoomContainerRef.current) {
-      return;
-    }
-    mapZoomContainerRef.current.style.transform = `scale(${mapZoom})`;
-    mapZoomContainerRef.current.style.transformOrigin = "center";
-  }, [mapZoom]);
-
-  useEffect(() => {
     let active = true;
 
     if (!registration || !normalizedDocument || !pushSupported) {
@@ -263,14 +255,6 @@ const StandSelection = () => {
       setSubmittingChoices(false);
     }
   }, [registration, selectedChoices, maxSelectable, refreshRegistration, normalizedDocument]);
-
-  const handleMapZoomIn = useCallback(() => {
-    setMapZoom((prev) => Math.min(prev + 0.2, 2));
-  }, []);
-
-  const handleMapZoomOut = useCallback(() => {
-    setMapZoom((prev) => Math.max(prev - 0.2, 0.6));
-  }, []);
 
   const renderStatusBanner = useCallback(() => {
     if (!registration) return null;
@@ -389,50 +373,30 @@ const StandSelection = () => {
 
               <div className="mt-8 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-medium text-primary">Visualize o mapa e utilize o zoom para analisar os setores.</p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={handleMapZoomOut}
-                      aria-label="Reduzir mapa"
-                    >
-                      <ZoomOut className="h-4 w-4" /> Reduzir
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={handleMapZoomIn}
-                      aria-label="Ampliar mapa"
-                    >
-                      <ZoomIn className="h-4 w-4" /> Ampliar
-                    </Button>
-                  </div>
+                  <p className="text-sm font-medium text-primary">
+                    Visualize o mapa fixo abaixo para conferir a localização dos estandes.
+                  </p>
+                  <Button asChild variant="outline" size="sm" className="flex items-center gap-2">
+                    <a href={mapaFeiraEscolha} download>
+                      <Download className="h-4 w-4" /> Baixar mapa para melhor visualização
+                    </a>
+                  </Button>
                 </div>
 
                 <div className="rounded-3xl border border-primary/15 bg-primary/5 p-3 shadow-sm">
                   <div className="max-h-[420px] overflow-auto rounded-[1.75rem] border border-white/60 bg-white/90 p-2 shadow-inner">
-                    <div
-                      ref={mapZoomContainerRef}
-                      className="inline-block w-full origin-center transition-transform duration-300 ease-out"
-                    >
-                      <figure className="overflow-hidden rounded-[1.5rem]">
-                        <img
-                          src={mapaFeiraEscolha}
-                          alt="Mapa ilustrativo para a escolha dos estandes"
-                          className="h-auto w-full object-cover"
-                          loading="lazy"
-                        />
-                      </figure>
-                    </div>
+                    <figure className="overflow-hidden rounded-[1.5rem]">
+                      <img
+                        src={mapaFeiraEscolha}
+                        alt="Mapa ilustrativo para a escolha dos estandes"
+                        className="h-auto w-full object-cover"
+                        loading="lazy"
+                      />
+                    </figure>
                   </div>
                 </div>
                 <p className="text-center text-xs text-muted-foreground">
-                  Consulte o mapa para identificar a localização dos estandes antes de enviar sua escolha.
+                  Baixe o mapa para visualizar com mais detalhes ou consulte a versão fixa acima antes de enviar sua escolha.
                 </p>
               </div>
 
@@ -586,14 +550,27 @@ const StandSelection = () => {
                               </p>
                             </div>
                           ) : (
-                            <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
-                              <p>
-                                Para receber os lembretes automáticos, acesse a página de <Link to="/consulta" className="underline underline-offset-2 text-primary">consulta</Link> com este CPF/CNPJ, ative as notificações uma vez e mantenha-as habilitadas.
-                              </p>
-                              <p className="text-xs">
-                                Depois de ativadas, o sistema continua enviando lembretes automáticos em todos os dispositivos autorizados.
-                              </p>
-                            </div>
+                            <>
+                              {!salesClosed ? (
+                                <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
+                                  <p>
+                                    Para receber os lembretes automáticos, acesse a página de <Link to="/consulta" className="underline underline-offset-2 text-primary">consulta</Link> com este CPF/CNPJ, ative as notificações uma vez e mantenha-as habilitadas.
+                                  </p>
+                                  <p className="text-xs">
+                                    Depois de ativadas, o sistema continua enviando lembretes automáticos em todos os dispositivos autorizados.
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-3">
+                                  <p>
+                                    As inscrições estão encerradas, mas o seu cadastro segue recebendo lembretes se você já tiver ativado as notificações anteriormente.
+                                  </p>
+                                  <p className="text-xs">
+                                    Precisa de ajustes? Entre em contato com a organização pelos canais oficiais para receber suporte.
+                                  </p>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}

@@ -4,6 +4,7 @@ import heroImage3 from "@/assets/hero-bg3.jpg";
 import Countdown from "@/components/Countdown";
 import Footer from "@/components/Footer";
 import InstallPrompt from "@/components/InstallPrompt";
+import { useSalesClosed } from "@/hooks/use-sales-closed";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { getMixedPhotoUrls } from "@/lib/photos";
@@ -94,6 +95,7 @@ const Home = () => {
   const totalImages = heroImages.length;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { salesClosed } = useSalesClosed();
 
   const startAutoPlay = useCallback(() => {
     if (intervalRef.current) {
@@ -188,6 +190,16 @@ const Home = () => {
                       Garanta seu estande
                     </Button>
                   </Link>
+                  {!salesClosed ? (
+                    <Link to="/cadastro" className="w-full sm:w-auto">
+                      <Button
+                        size="lg"
+                        className="w-full rounded-2xl bg-gradient-to-r from-secondary via-secondary-light to-accent px-10 py-6 text-base font-semibold shadow-mega transition hover:from-secondary-light hover:via-secondary hover:to-secondary sm:w-auto"
+                      >
+                        Garanta seu estande
+                      </Button>
+                    </Link>
+                  ) : null}
                   <Link to="/manual" className="w-full sm:w-auto">
                     <Button
                       variant="outline"
