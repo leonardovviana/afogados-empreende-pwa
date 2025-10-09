@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import type { ExhibitorRegistrationInsert, RegistrationStatus } from "@/integrations/supabase/types";
@@ -895,14 +894,14 @@ const Cadastro = () => {
                         <h3 className="text-lg font-semibold text-primary text-center uppercase tracking-wide">
                           TERMO DE ACEITE – 8ª FEIRA DE EMPREENDEDORISMO
                         </h3>
-                        <ScrollArea className="max-h-[320px] rounded-3xl border border-primary/20 bg-white/80 p-5 shadow-inner">
+                        <div className="rounded-3xl border border-primary/20 bg-white/80 p-5 shadow-inner">
                           <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
                             <p>
                               Declaro que li e concordo com as normas do Manual do Expositor, comprometendo-me a:
                             </p>
                             <ul className="list-disc space-y-2 pl-5">
                               <li>
-                                Cumprir todos os prazos e horários estabelecidos para montagem, funcionamento (17h às 23h) e desmontagem do stand, garantindo presença durante todo o evento;
+                                Cumprir todos os prazos e horários estabelecidos para montagem, funcionamento (18h às 23h) e desmontagem do stand, garantindo presença durante todo o evento;
                               </li>
                               <li>Utilizar corretamente o stand padrão e devolver o material em perfeito estado;</li>
                               <li>Garantir a presença de representantes maiores de 16 anos, devidamente identificados com credencial;</li>
@@ -923,7 +922,7 @@ const Cadastro = () => {
                               Afogados da Ingazeira, PE – 8ª Feira de Empreendedorismo 2025
                             </p>
                           </div>
-                        </ScrollArea>
+                        </div>
                       </div>
 
                       <FormField

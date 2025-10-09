@@ -33,17 +33,17 @@ const HERO_METRICS = [
   {
     icon: Building2,
     label: "Expositores",
-    value: "100+",
+    value: "200+",
   },
   {
     icon: Users,
     label: "Visitantes",
-    value: "30.000+",
+    value: "15.000+",
   },
   {
     icon: TrendingUp,
-    label: "Negócios",
-    value: "R$ 2 mi",
+    label: "NPS dos expositores",
+    value: "9.5",
   },
 ] as const;
 

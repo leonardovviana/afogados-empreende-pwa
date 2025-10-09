@@ -55,10 +55,10 @@ const formatCaptionFromPath = (filePath: string): string => {
 };
 
 const stats = [
-  { icon: Building2, label: "Expositores", value: "100+" },
-  { icon: Users, label: "Visitantes", value: "5.000+" },
-  { icon: TrendingUp, label: "Negócios", value: "R$ 2 milhões" },
-  { icon: Award, label: "Edições", value: "8ª" },
+  { icon: Building2, label: "Expositores", value: "200+" },
+  { icon: Users, label: "Visitantes", value: "15.000+" },
+  { icon: TrendingUp, label: "NPS dos expositores", value: "9.5" },
+  { icon: Award, label: "Edições", value: "8" },
 ];
 
 const values = [

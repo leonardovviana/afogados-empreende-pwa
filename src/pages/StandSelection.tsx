@@ -21,7 +21,7 @@ import {
     type FetchRegistrationResult,
     type StandSelectionStatus,
 } from "@/lib/stand-selection";
-import { Bell, CheckCircle2, Clock, Loader2, Lock, Search, ShieldCheck } from "lucide-react";
+import { Bell, CheckCircle2, Clock, Loader2, Lock, Search, ShieldCheck, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -82,6 +82,8 @@ const StandSelection = () => {
     display: "",
   });
   const [selectedChoices, setSelectedChoices] = useState<number[]>([]);
+  const [mapZoom, setMapZoom] = useState(1);
+  const mapZoomContainerRef = useRef<HTMLDivElement>(null);
   const [submittingChoices, setSubmittingChoices] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [subscriptionActive, setSubscriptionActive] = useState(false);
@@ -176,6 +178,14 @@ const StandSelection = () => {
   }, [clearCountdownInterval]);
 
   useEffect(() => {
+    if (!mapZoomContainerRef.current) {
+      return;
+    }
+    mapZoomContainerRef.current.style.transform = `scale(${mapZoom})`;
+    mapZoomContainerRef.current.style.transformOrigin = "center";
+  }, [mapZoom]);
+
+  useEffect(() => {
     let active = true;
 
     if (!registration || !normalizedDocument || !pushSupported) {
@@ -249,6 +259,14 @@ const StandSelection = () => {
       setSubmittingChoices(false);
     }
   }, [registration, selectedChoices, maxSelectable, refreshRegistration, normalizedDocument]);
+
+  const handleMapZoomIn = useCallback(() => {
+    setMapZoom((prev) => Math.min(prev + 0.2, 2));
+  }, []);
+
+  const handleMapZoomOut = useCallback(() => {
+    setMapZoom((prev) => Math.max(prev - 0.2, 0.6));
+  }, []);
 
   const renderStatusBanner = useCallback(() => {
     if (!registration) return null;
@@ -366,13 +384,48 @@ const StandSelection = () => {
               </div>
 
               <div className="mt-8 space-y-3">
-                <div className="overflow-hidden rounded-3xl border border-primary/15 shadow-sm">
-                  <img
-                    src={mapaFeiraEscolha}
-                    alt="Mapa ilustrativo para a escolha dos estandes"
-                    className="h-auto w-full object-cover"
-                    loading="lazy"
-                  />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-medium text-primary">Visualize o mapa e utilize o zoom para analisar os setores.</p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={handleMapZoomOut}
+                      aria-label="Reduzir mapa"
+                    >
+                      <ZoomOut className="h-4 w-4" /> Reduzir
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={handleMapZoomIn}
+                      aria-label="Ampliar mapa"
+                    >
+                      <ZoomIn className="h-4 w-4" /> Ampliar
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-primary/15 bg-primary/5 p-3 shadow-sm">
+                  <div className="max-h-[420px] overflow-auto rounded-[1.75rem] border border-white/60 bg-white/90 p-2 shadow-inner">
+                    <div
+                      ref={mapZoomContainerRef}
+                      className="inline-block w-full origin-center transition-transform duration-300 ease-out"
+                    >
+                      <figure className="overflow-hidden rounded-[1.5rem]">
+                        <img
+                          src={mapaFeiraEscolha}
+                          alt="Mapa ilustrativo para a escolha dos estandes"
+                          className="h-auto w-full object-cover"
+                          loading="lazy"
+                        />
+                      </figure>
+                    </div>
+                  </div>
                 </div>
                 <p className="text-center text-xs text-muted-foreground">
                   Consulte o mapa para identificar a localização dos estandes antes de enviar sua escolha.
