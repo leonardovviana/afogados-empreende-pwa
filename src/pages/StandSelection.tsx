@@ -1,3 +1,4 @@
+import mapaFeiraEscolha from "@/assets/mapafeiraescolha.jpg";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -7,19 +8,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  buildStandRange,
-  computeStandSelectionStatus,
-  fetchRegistrationByDocument,
-  parseStandChoices,
-  sanitizeDocumentDigits,
-  submitStandSelection,
-  type FetchRegistrationResult,
-  type StandSelectionStatus,
-} from "@/lib/stand-selection";
-import {
-  hasActiveSubscription,
-  isPushNotificationSupported,
+    hasActiveSubscription,
+    isPushNotificationSupported,
 } from "@/lib/notifications";
+import {
+    buildStandRange,
+    computeStandSelectionStatus,
+    fetchRegistrationByDocument,
+    parseStandChoices,
+    sanitizeDocumentDigits,
+    submitStandSelection,
+    type FetchRegistrationResult,
+    type StandSelectionStatus,
+} from "@/lib/stand-selection";
 import { Bell, CheckCircle2, Clock, Loader2, Lock, Search, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -362,6 +363,20 @@ const StandSelection = () => {
                     Consultar
                   </Button>
                 </div>
+              </div>
+
+              <div className="mt-8 space-y-3">
+                <div className="overflow-hidden rounded-3xl border border-primary/15 shadow-sm">
+                  <img
+                    src={mapaFeiraEscolha}
+                    alt="Mapa ilustrativo para a escolha dos estandes"
+                    className="h-auto w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                <p className="text-center text-xs text-muted-foreground">
+                  Consulte o mapa para identificar a localização dos estandes antes de enviar sua escolha.
+                </p>
               </div>
 
               {registration ? (

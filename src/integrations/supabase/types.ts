@@ -83,6 +83,7 @@ export type ExhibitorRegistrationUpdate = Partial<
 export interface RegistrationSettingsRow {
 	id: number;
 	launch_pricing_enabled: boolean;
+	sales_closed: boolean;
 	created_at: string;
 	updated_at: string;
 }
@@ -90,6 +91,7 @@ export interface RegistrationSettingsRow {
 export type RegistrationSettingsInsert = {
 	id?: number;
 	launch_pricing_enabled: boolean;
+	sales_closed?: boolean;
 	created_at?: string;
 	updated_at?: string;
 };

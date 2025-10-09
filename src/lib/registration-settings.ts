@@ -10,6 +10,7 @@ export const REGISTRATION_SETTINGS_SINGLETON_ID = 1;
 
 export interface RegistrationSettings {
 	launchPricingEnabled: boolean;
+	salesClosed: boolean;
 }
 
 export class RegistrationSettingsNotProvisionedError extends Error {
@@ -21,6 +22,7 @@ export class RegistrationSettingsNotProvisionedError extends Error {
 
 const mapRowToSettings = (row: RegistrationSettingsRowDb | null): RegistrationSettings => ({
 	launchPricingEnabled: row?.launch_pricing_enabled ?? true,
+	salesClosed: row?.sales_closed ?? false,
 });
 
 const isPostgrestError = (error: unknown): error is PostgrestError =>
@@ -51,7 +53,7 @@ export const fetchRegistrationSettings = async (): Promise<RegistrationSettings>
 	const client = supabase as any;
 	const { data, error } = await client
 		.from("registration_settings")
-		.select("id, launch_pricing_enabled")
+		.select("id, launch_pricing_enabled, sales_closed")
 		.eq("id", REGISTRATION_SETTINGS_SINGLETON_ID)
 		.maybeSingle();
 
@@ -67,6 +69,7 @@ export const upsertRegistrationSettings = async (
 ): Promise<void> => {
 	const updatePayload: RegistrationSettingsUpdateDb = {
 		launch_pricing_enabled: settings.launchPricingEnabled,
+		sales_closed: settings.salesClosed,
 	};
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,6 +101,7 @@ export const upsertRegistrationSettings = async (
 	const insertPayload: RegistrationSettingsInsertDb = {
 		id: REGISTRATION_SETTINGS_SINGLETON_ID,
 		launch_pricing_enabled: settings.launchPricingEnabled,
+		sales_closed: settings.salesClosed,
 	};
 
 	const insertAttempt = await client

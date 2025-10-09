@@ -165,7 +165,7 @@ const Home = () => {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-primary dark:text-primary-foreground">6, 7 e 8 de novembro</p>
-                      <p className="text-xs text-muted-foreground">Programação intensa de 17h às 23h</p>
+                      <p className="text-xs text-muted-foreground">Programação intensa de 18h às 23h</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 rounded-2xl border border-primary/15 bg-white/80 p-4 shadow-sm backdrop-blur-md dark:border-primary/40 dark:bg-primary/20">
@@ -173,7 +173,7 @@ const Home = () => {
                       <MapPin size={20} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-primary dark:text-primary-foreground">Praça Arruda Câmara</p>
+                      <p className="text-sm font-semibold text-primary dark:text-primary-foreground">Praça Arruda Câmara e Praça Padre Carlos Cottart </p>
                       <p className="text-xs text-muted-foreground">Centro de Afogados da Ingazeira - PE</p>
                     </div>
                   </div>

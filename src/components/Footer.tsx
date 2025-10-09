@@ -59,7 +59,7 @@ const Footer = () => {
             <div className="space-y-2 text-sm text-muted-foreground/80">
               <p className="flex items-center gap-2">
                 <MapPin size={18} className="text-primary" />
-                Praça Arruda Câmara • Afogados da Ingazeira - PE
+                Praça Arruda Câmara e Praça Padre Carlos Cottart • Afogados da Ingazeira - PE
               </p>
               <p className="flex items-center gap-2">
                 <CalendarDays size={18} className="text-primary" />

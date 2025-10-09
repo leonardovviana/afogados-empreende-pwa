@@ -65,13 +65,13 @@ const Manual = () => {
                   <strong className="text-card-foreground">Data do Evento:</strong> 6, 7 e 8 de Novembro de 2025
                 </p>
                 <p>
-                  <strong className="text-card-foreground">Horário de Funcionamento:</strong> 10h às 21h
+                  <strong className="text-card-foreground">Horário de Funcionamento:</strong> 18h às 23h
                 </p>
                 <p>
-                  <strong className="text-card-foreground">Montagem:</strong> 5 de Novembro, das 8h às 18h
+                  <strong className="text-card-foreground">Montagem:</strong> 5 de Novembro, até às 18h
                 </p>
                 <p>
-                  <strong className="text-card-foreground">Desmontagem:</strong> 9 de Novembro, a partir das 8h (funcionamento normal no dia 8)
+                  <strong className="text-card-foreground">Desmontagem:</strong> 8 de Novembro, a partir das 23h
                 </p>
               </div>
             </section>
@@ -143,7 +143,6 @@ const Manual = () => {
                     >
                       +55 (87) 99978-1331
                     </a>
-                    <p className="text-xs md:text-sm text-muted-foreground">Atendimento de segunda a sexta, das 8h às 17h</p>
                   </div>
                 </div>
 
@@ -172,7 +171,7 @@ const Manual = () => {
                   <div>
                     <p className="text-xs md:text-sm font-semibold text-card-foreground">Endereço da feira</p>
                     <p className="text-sm md:text-base text-muted-foreground">
-                      Praça Arruda Câmara, Centro<br />
+                      Praça Arruda Câmara e Praça Padre Carlos Cottart, Centro<br />
                       Afogados da Ingazeira - PE
                     </p>
                     <p className="text-xs md:text-sm text-muted-foreground">Estrutura principal montada ao lado da Prefeitura Municipal</p>

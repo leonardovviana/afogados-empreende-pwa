@@ -1,7 +1,6 @@
 import heroBg from "@/assets/hero-bg.jpg";
 import heroBg2 from "@/assets/hero-bg2.jpg";
 import heroBg3 from "@/assets/hero-bg3.jpg";
-import mapFeira from "@/assets/mapafeira.jpg";
 import logoAfogados from "@/assets/logoaf.png";
 import logoCdl from "@/assets/logocdl.png";
 import logoSebrae from "@/assets/logosebrae.png";
@@ -13,15 +12,19 @@ import { getMixedPhotoEntries } from "@/lib/photos";
 import {
     Award,
     Building2,
-    CalendarCheck,
-    ChevronLeft,
-    ChevronRight,
-    Handshake,
-    HeartHandshake,
-    Lightbulb,
-    Rocket,
-    TrendingUp,
-    Users,
+  CalendarCheck,
+  ChevronLeft,
+  ChevronRight,
+  Handshake,
+  Mic2,
+  Music2,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  Tv,
+  Users,
+  UtensilsCrossed,
+  Blocks,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -78,47 +81,67 @@ const values = [
 
 const pillars = [
   {
-    icon: Lightbulb,
-    title: "Inovação",
-    description: "Conteúdos curados, lançamentos de produtos e um ambiente feito para quem pensa à frente.",
+    icon: Mic2,
+    title: "Palco 360°",
+    description: "Design inovador que integra público e artistas em uma experiência imersiva única.",
   },
   {
-    icon: Handshake,
-    title: "Conexão",
-    description: "Networking estruturado, rodadas de negócios e aproximação estratégica entre empresas e público.",
+    icon: UtensilsCrossed,
+    title: "Praça Gastronômica",
+    description: "Sabores locais e experiências culinárias que celebram nossa cultura.",
   },
   {
-    icon: Rocket,
-    title: "Crescimento",
-    description: "Mentorias, workshops e parcerias que aceleram resultados e fortalecem marcas.",
+    icon: Blocks,
+    title: "Espaço Kids",
+    description: "Um espaço seguro, colorido e cheio de atividades.",
   },
   {
-    icon: HeartHandshake,
-    title: "Impacto Social",
-    description: "Projetos que valorizam a cultura local, criam empregos e movimentam a economia criativa.",
+    icon: Sparkles,
+    title: "Desfile de Moda",
+    description:
+      "Reúne o melhor dos diversos segmentos como: vestuário, calçados, acessórios, beleza etc.",
+  },
+  {
+    icon: Tv,
+    title: "Cobertura ELO TV",
+    description: "Bastidores, entrevista e grandes momentos da Feira.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Segurança",
+    description: "Vigilância 24 horas com câmeras e equipe de apoio.",
+  },
+  {
+    icon: Music2,
+    title: "Atrações Artísticas",
+    description: "Programação diversificada, valorizando artistas locais e regionais.",
   },
 ];
 
 const timeline = [
   {
-    year: "2017",
-    title: "Primeira edição",
-    description: "Nasce a feira com 35 expositores locais e o objetivo de aquecer o comércio regional.",
+    year: "2015",
+    title: "1ª Feira",
+    description:
+      "O início de uma jornada. Afogados da Ingazeira desperta para o empreendedorismo e planta as primeiras sementes de um futuro inovador.",
   },
   {
     year: "2019",
-    title: "Expansão",
-    description: "Programa de capacitações e rodadas de negócios consolida o evento como agenda do empreendedor.",
+    title: "5ª Feira",
+    description:
+      "Um salto de visibilidade e oportunidades, conectando talentos, cultura e negócios.",
   },
   {
-    year: "2022",
-    title: "Transformação digital",
-    description: "A feira ganha versão híbrida, plataforma de matchmaking e cobertura online.",
+    year: "2023",
+    title: "6ª Feira",
+    description:
+      "O grande retorno! Depois da pausa, Afogados vive sua maior feira da história: recorde de público e um renascimento da economia local.",
   },
   {
-    year: "2025",
-    title: "8ª edição",
-    description: "Recorde de público, novas trilhas temáticas e um ecossistema conectado ao futuro do Sertão.",
+    year: "2024",
+    title: "7ª Feira",
+    description:
+      "A feira se transforma! Uma edição marcada pela inovação, tecnologia e visão de futuro, preparando Afogados para a nova era do empreendedorismo.",
   },
 ];
 
@@ -565,13 +588,13 @@ const Sobre = () => {
         <section className="container mx-auto px-4">
           <div className="text-center">
             <span className="inline-flex items-center gap-2 rounded-full bg-secondary/15 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-secondary">
-              Nossa base
+              O que temos na feira?
             </span>
             <h2 className="mt-4 text-2xl font-bold text-foreground sm:text-3xl">
-              Os pilares que sustentam a experiência da feira
+              Experiências para todos os públicos
             </h2>
             <p className="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Cada área da programação foi pensada para gerar valor imediato para expositores e visitantes. Do estande ao palco principal, criamos rotas que estimulam conhecimento, conexões e resultados.
+              Conheça os espaços que fazem da feira um evento completo, recheado de cultura, negócios, sabores e diversão para toda a família.
             </p>
           </div>
 

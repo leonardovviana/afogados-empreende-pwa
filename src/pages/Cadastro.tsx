@@ -10,17 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import type { ExhibitorRegistrationInsert, RegistrationStatus } from "@/integrations/supabase/types";
 import {
-    calculateTotalAmount,
-    formatCurrencyBRL,
-    STAND_OPTIONS,
-  PAYMENT_UNIT_PRICES,
-    type FormattedPaymentMethod,
-} from "@/lib/pricing";
-import {
   isPushNotificationSupported,
   requestBrowserNotificationPermission,
   subscribeForRegistrationUpdates,
 } from "@/lib/notifications";
+import {
+  calculateTotalAmount,
+  formatCurrencyBRL,
+  PAYMENT_UNIT_PRICES,
+  STAND_OPTIONS,
+  type FormattedPaymentMethod,
+} from "@/lib/pricing";
 import { fetchRegistrationSettings, RegistrationSettingsNotProvisionedError } from "@/lib/registration-settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { PostgrestError } from "@supabase/supabase-js";

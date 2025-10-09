@@ -44,7 +44,6 @@ import {
   fetchRegistrationSettings,
   upsertRegistrationSettings,
 } from "@/lib/registration-settings";
-import { buildBoletoFilePath } from "@/lib/storage";
 import {
   STAND_SELECTION_DURATION_MINUTES,
   buildStandRange,
@@ -56,8 +55,9 @@ import {
   type StandSelectionRegistration,
   type StandSelectionStatus,
 } from "@/lib/stand-selection";
+import { buildBoletoFilePath } from "@/lib/storage";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { BellRing, Clock, Download, Edit3, Loader2, LogOut, RefreshCw, Search, Send, Trash2, UploadCloud } from "lucide-react";
+import { BellRing, Clock, Download, Edit3, Loader2, Lock, LogOut, RefreshCw, Search, Send, Trash2, Unlock, UploadCloud } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -288,6 +288,9 @@ const AdminDashboard = () => {
   const [launchPricingLoading, setLaunchPricingLoading] = useState(true);
   const [launchPricingSaving, setLaunchPricingSaving] = useState(false);
   const [launchPricingAvailable, setLaunchPricingAvailable] = useState(true);
+  const [salesClosed, setSalesClosed] = useState(false);
+  const [salesControlSaving, setSalesControlSaving] = useState(false);
+  const [salesControlAvailable, setSalesControlAvailable] = useState(true);
   const [standSelectionTab, setStandSelectionTab] = useState<"queue" | "completed">("queue");
   const [standSelectionSearch, setStandSelectionSearch] = useState("");
   const [standWindowForm, setStandWindowForm] = useState<Record<string, { slotStart: string; slotEnd: string; duration: string }>>({});
@@ -487,6 +490,8 @@ const AdminDashboard = () => {
   const loadRegistrationSettings = useCallback(async () => {
     if (!isSupabaseConfigured()) {
       setLaunchPricingLoading(false);
+      setSalesControlAvailable(false);
+      setSalesClosed(false);
       return;
     }
 
@@ -496,10 +501,13 @@ const AdminDashboard = () => {
       const settings = await fetchRegistrationSettings();
       setLaunchPricingEnabled(settings.launchPricingEnabled);
       setLaunchPricingAvailable(true);
+      setSalesClosed(settings.salesClosed);
+      setSalesControlAvailable(true);
     } catch (error) {
       console.error("Erro ao carregar configuração de preços:", error);
       if (error instanceof RegistrationSettingsNotProvisionedError) {
         setLaunchPricingAvailable(false);
+        setSalesControlAvailable(false);
         toast.error(
           "Configuração de preços indisponível. Execute as migrações do Supabase para liberar o controle."
         );
@@ -526,7 +534,7 @@ const AdminDashboard = () => {
     setLaunchPricingSaving(true);
 
     try {
-      await upsertRegistrationSettings({ launchPricingEnabled: enabled });
+      await upsertRegistrationSettings({ launchPricingEnabled: enabled, salesClosed });
       setLaunchPricingEnabled(enabled);
       await loadRegistrationSettings();
       toast.success(
@@ -538,6 +546,7 @@ const AdminDashboard = () => {
       console.error("Erro ao atualizar configuração de preços:", error);
       if (error instanceof RegistrationSettingsNotProvisionedError) {
         setLaunchPricingAvailable(false);
+        setSalesControlAvailable(false);
         toast.error(
           "Não encontramos a tabela de configuração de preços. Execute as migrações do Supabase e tente novamente."
         );
@@ -546,6 +555,48 @@ const AdminDashboard = () => {
       }
     } finally {
       setLaunchPricingSaving(false);
+    }
+  };
+
+  const handleSalesClosedToggle = async (closed: boolean) => {
+    if (!salesControlAvailable) {
+      toast.error(
+        "Controle de encerramento indisponível. Execute as migrações do Supabase para habilitar o recurso."
+      );
+      return;
+    }
+
+    if (salesControlSaving || launchPricingLoading) {
+      return;
+    }
+
+    setSalesControlSaving(true);
+
+    try {
+      await upsertRegistrationSettings({
+        launchPricingEnabled,
+        salesClosed: closed,
+      });
+      setSalesClosed(closed);
+      await loadRegistrationSettings();
+      toast.success(
+        closed
+          ? "Novos cadastros e consultas foram ocultados do site."
+          : "As páginas públicas foram reativadas."
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar encerramento das vendas:", error);
+      if (error instanceof RegistrationSettingsNotProvisionedError) {
+        setSalesControlAvailable(false);
+        setLaunchPricingAvailable(false);
+        toast.error(
+          "Não encontramos a tabela de configuração de inscrições. Execute as migrações do Supabase e tente novamente."
+        );
+      } else {
+        toast.error("Não foi possível salvar a alteração. Tente novamente.");
+      }
+    } finally {
+      setSalesControlSaving(false);
     }
   };
 
@@ -1466,6 +1517,39 @@ const AdminDashboard = () => {
               : launchPricingEnabled
                 ? "Expositores visualizam o valor promocional de R$ 700,00 por stand, inclusive para pedidos com dois ou mais stands; a opção de R$ 850,00 segue disponível apenas para um stand."
                 : "Novos cadastros verão apenas R$ 850,00 para um stand, enquanto pedidos com dois ou mais stands permanecem em R$ 750,00."}
+          </p>
+        </div>
+
+        <div className="bg-card rounded-xl shadow-elegant p-6 mb-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-primary">Encerramento de vendas</h2>
+              <p className="text-sm text-muted-foreground">
+                Controle a visibilidade das páginas públicas de inscrição, consulta e escolha de stands.
+              </p>
+            </div>
+            <Button
+              onClick={() => void handleSalesClosedToggle(!salesClosed)}
+              disabled={launchPricingLoading || salesControlSaving || !salesControlAvailable}
+              variant={salesClosed ? "outline" : "destructive"}
+              className="flex items-center gap-2"
+            >
+              {salesControlSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : salesClosed ? (
+                <Unlock className="h-4 w-4" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              {salesClosed ? "Reabrir inscrições" : "Encerrar vendas"}
+            </Button>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {!salesControlAvailable
+              ? "A configuração de encerramento ainda não foi provisionada. Execute as migrações do Supabase e recarregue o painel para habilitar o controle."
+              : salesClosed
+                ? "Visitantes não visualizarão as abas Cadastro, Consulta e Escolha seu stand no menu principal."
+                : "As páginas públicas seguem disponíveis normalmente para novos cadastros e consultas."}
           </p>
         </div>
 

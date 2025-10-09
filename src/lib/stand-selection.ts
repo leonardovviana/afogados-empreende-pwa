@@ -1,8 +1,8 @@
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
 import type {
-  ExhibitorRegistrationRow,
-  ExhibitorRegistrationUpdate,
-  RegistrationStatus,
+    ExhibitorRegistrationRow,
+    ExhibitorRegistrationUpdate,
+    RegistrationStatus,
 } from "@/integrations/supabase/types";
 
 export const STAND_SELECTION_DURATION_MINUTES = 60;

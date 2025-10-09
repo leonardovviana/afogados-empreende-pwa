@@ -2,8 +2,10 @@ import logoAfadm from "@/assets/logoafadm2.png";
 import logoFeira from "@/assets/logofeira.png";
 import logoSala from "@/assets/logosala.png";
 import logoSebrae from "@/assets/logosebrae.png";
+import { isSupabaseConfigured } from "@/integrations/supabase/client";
+import { fetchRegistrationSettings } from "@/lib/registration-settings";
 import { Menu, X } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 const NAV_LINKS = [
@@ -15,6 +17,8 @@ const NAV_LINKS = [
   { name: "Sobre", path: "/sobre" },
   { name: "Manual", path: "/manual" },
 ] as const;
+
+const HIDDEN_WHEN_SALES_CLOSED = new Set<string>(["/cadastro", "/consulta", "/escolha-seu-stand"]);
 
 const REALIZATION_LOGOS = [
   {
@@ -33,9 +37,40 @@ const REALIZATION_LOGOS = [
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [salesClosed, setSalesClosed] = useState(false);
   const location = useLocation();
 
-  const links = useMemo(() => NAV_LINKS, []);
+  useEffect(() => {
+    let active = true;
+
+    if (!isSupabaseConfigured()) {
+      return () => {
+        active = false;
+      };
+    }
+
+    void fetchRegistrationSettings()
+      .then((settings) => {
+        if (active) {
+          setSalesClosed(settings.salesClosed);
+        }
+      })
+      .catch((error) => {
+        console.error("Erro ao ler configuração pública:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const links = useMemo(() => {
+    if (!salesClosed) {
+      return NAV_LINKS;
+    }
+
+    return NAV_LINKS.filter((link) => !HIDDEN_WHEN_SALES_CLOSED.has(link.path));
+  }, [salesClosed]);
   const realizationLogos = useMemo(() => REALIZATION_LOGOS, []);
   const isActive = useCallback((path: string) => location.pathname === path, [location.pathname]);
   const toggleMenu = useCallback(() => setIsOpen((previous) => !previous), []);
