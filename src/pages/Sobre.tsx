@@ -4,7 +4,6 @@ import heroBg3 from "@/assets/hero-bg3.jpg";
 import logoAfogados from "@/assets/logoaf.png";
 import logoCdl from "@/assets/logocdl.png";
 import logoSebrae from "@/assets/logosebrae.png";
-import logoUnicef from "@/assets/logounicef.png";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
@@ -13,11 +12,15 @@ import {
     Award,
     Building2,
   CalendarCheck,
+  Clock3,
   ChevronLeft,
   ChevronRight,
-  Handshake,
+  MapPin,
   Mic2,
   Music2,
+  PlayCircle,
+  ExternalLink,
+  Newspaper,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -118,6 +121,48 @@ const pillars = [
   },
 ];
 
+const mediaHighlights = [
+  {
+    icon: PlayCircle,
+    title: "Playlist oficial na ELO TV",
+    description: "Assista aos principais momentos da feira produzidos pela equipe da ELO TV.",
+    href: "https://www.youtube.com/@elotvafogados",
+    cta: "Abrir playlist",
+  },
+  {
+    icon: Sparkles,
+    title: "Cobertura no Instagram",
+    description: "Bastidores, entrevistas e conteúdos exclusivos direto do perfil da feira.",
+    href: "https://www.instagram.com/afogadosempreende/",
+    cta: "Seguir no Instagram",
+  },
+  {
+    icon: Newspaper,
+    title: "Notícias na Prefeitura",
+    description: "Leia a publicação oficial sobre os destaques da última edição.",
+    href: "https://www.afogadosdaingazeira.pe.gov.br/noticias",
+    cta: "Ler matéria",
+  },
+];
+
+const eventInformation = [
+  {
+    icon: MapPin,
+    label: "Local",
+    value: "Centro Desportivo Municipal – Av. Manoel Borba, Centro, Afogados da Ingazeira - PE",
+  },
+  {
+    icon: CalendarCheck,
+    label: "Data",
+    value: "12 a 14 de setembro de 2025",
+  },
+  {
+    icon: Clock3,
+    label: "Horários",
+    value: "Abertura às 19h na sexta • Programação diária das 17h às 22h",
+  },
+];
+
 const timeline = [
   {
     year: "2015",
@@ -149,7 +194,6 @@ const supporters = [
   { name: "Prefeitura de Afogados da Ingazeira", logo: logoAfogados },
   { name: "SEBRAE", logo: logoSebrae },
   { name: "CDL Afogados", logo: logoCdl },
-  { name: "Unicef", logo: logoUnicef },
 ];
 
 const galleryStaticImages: GalleryImage[] = [
@@ -384,38 +428,40 @@ const Sobre = () => {
             </div>
 
             <div className="rounded-3xl border border-primary/10 bg-gradient-to-br from-secondary/10 via-secondary/5 to-accent/10 p-6 shadow-primary">
-              <h3 className="text-lg font-semibold text-primary sm:text-xl">Histórias que inspiram</h3>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-secondary">
+                Na mídia
+              </span>
+              <h3 className="mt-3 text-lg font-semibold text-primary sm:text-xl">Assista e leia sobre a feira</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Resultados alcançados por quem já apostou na feira e transformou sua jornada empreendedora.
+                Veja como a Feira do Empreendedor tem ganhado repercussão nos principais canais de comunicação da região.
               </p>
-              <div className="mt-6 space-y-4 text-sm text-muted-foreground">
-                <div className="rounded-2xl bg-white/80 p-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center gap-3 text-primary">
-                    <Handshake className="h-5 w-5" />
-                    <span className="font-semibold">Parcerias estratégicas</span>
-                  </div>
-                  <p className="mt-2 text-xs sm:text-sm">
-                    63% dos expositores firmaram novos acordos comerciais após participarem da última edição.
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/80 p-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center gap-3 text-primary">
-                    <TrendingUp className="h-5 w-5" />
-                    <span className="font-semibold">Crescimento acelerado</span>
-                  </div>
-                  <p className="mt-2 text-xs sm:text-sm">
-                    Marcas locais registraram aumento médio de 35% no faturamento nos meses seguintes ao evento.
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/80 p-4 shadow-sm backdrop-blur">
-                  <div className="flex items-center gap-3 text-primary">
-                    <CalendarCheck className="h-5 w-5" />
-                    <span className="font-semibold">Visibilidade contínua</span>
-                  </div>
-                  <p className="mt-2 text-xs sm:text-sm">
-                    O ecossistema permanece ativo com mentorias, missões técnicas e encontros após a feira.
-                  </p>
-                </div>
+              <div className="mt-6 space-y-4">
+                {mediaHighlights.map((item) => (
+                  <a
+                    key={item.title}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group flex items-start gap-4 rounded-2xl bg-white/85 p-4 shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <div className="rounded-2xl bg-secondary/15 p-2 text-secondary">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-primary sm:text-base">{item.title}</p>
+                        <ExternalLink className="h-4 w-4 text-secondary transition group-hover:translate-x-1" aria-hidden="true" />
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                        {item.description}
+                      </p>
+                      <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-secondary">
+                        {item.cta}
+                        <span aria-hidden="true">→</span>
+                      </span>
+                    </div>
+                  </a>
+                ))}
               </div>
             </div>
           </div>
@@ -581,6 +627,64 @@ const Sobre = () => {
                   ))}
                 </ul>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="container mx-auto px-4">
+          <div className="rounded-3xl border border-primary/10 bg-gradient-to-br from-white/80 via-secondary/10 to-accent/10 p-6 shadow-elegant backdrop-blur md:p-10">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-xl space-y-3">
+                <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-primary">
+                  Informações gerais
+                </span>
+                <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+                  Onde e quando acontece a 8ª edição
+                </h2>
+                <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
+                  Prepare sua equipe com antecedência. Confira o endereço, as datas e os horários oficiais da
+                  Feira do Empreendedor 2025 e compartilhe com quem ainda está planejando a visita.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <a
+                  href="https://wa.me/5587999781331?text=Olá%2C%20quero%20participar%20da%20Feira%20do%20Empreendedor"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <Button className="w-full rounded-2xl bg-secondary px-6 py-5 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light sm:w-auto">
+                    Falar no WhatsApp
+                  </Button>
+                </a>
+                <Link to="/contato" className="w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-2xl border-primary/20 px-6 py-5 text-sm font-semibold text-primary hover:bg-primary/10"
+                  >
+                    Enviar mensagem
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {eventInformation.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-2xl border border-primary/10 bg-white/85 p-5 shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-lg"
+                >
+                  <div className="flex items-center gap-3 text-primary">
+                    <item.icon className="h-5 w-5" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.25em]">
+                      {item.label}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </section>

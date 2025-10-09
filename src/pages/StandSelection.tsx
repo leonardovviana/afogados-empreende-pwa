@@ -8,18 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-    hasActiveSubscription,
-    isPushNotificationSupported,
+  hasActiveSubscription,
+  isPushNotificationSupported,
 } from "@/lib/notifications";
 import {
-    buildStandRange,
-    computeStandSelectionStatus,
-    fetchRegistrationByDocument,
-    parseStandChoices,
-    sanitizeDocumentDigits,
-    submitStandSelection,
-    type FetchRegistrationResult,
-    type StandSelectionStatus,
+  buildStandRange,
+  computeStandSelectionStatus,
+  fetchRegistrationByDocument,
+  parseStandChoices,
+  sanitizeDocumentDigits,
+  submitStandSelection,
+  type FetchRegistrationResult,
+  type StandSelectionStatus,
 } from "@/lib/stand-selection";
 import { Bell, CheckCircle2, Clock, Loader2, Lock, Search, ShieldCheck, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -93,8 +93,12 @@ const StandSelection = () => {
   const standsQuantity = registration?.registration.stands_quantity ?? 0;
   const slotStart = registration?.registration.stand_selection_slot_start ?? null;
   const slotEnd = registration?.registration.stand_selection_slot_end ?? null;
+  const slotAllowlist = registration?.registration.stand_selection_slot_allowlist ?? null;
 
-  const standRange = useMemo(() => buildStandRange(slotStart, slotEnd), [slotStart, slotEnd]);
+  const standRange = useMemo(
+    () => buildStandRange(slotStart, slotEnd, slotAllowlist),
+    [slotStart, slotEnd, slotAllowlist]
+  );
   const maxSelectable = Math.max(1, standsQuantity || standRange.length || 1);
 
   useEffect(() => {

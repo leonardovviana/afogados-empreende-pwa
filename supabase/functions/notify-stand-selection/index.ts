@@ -40,6 +40,7 @@ type NotifyStandSelectionRequest = {
   companyName?: string;
   slotStart?: number;
   slotEnd?: number;
+  slotAllowlist?: number[] | null;
   windowExpiresAt?: string;
   standsQuantity?: number;
   reminder?: boolean;
@@ -96,21 +97,25 @@ const buildNotificationContent = (
   companyName: string,
   slotStart: number | null,
   slotEnd: number | null,
+  slotAllowlist: number[] | null,
   deadline: string | null,
   standsQuantity: number | null,
   reminder: boolean
 ) => {
-  const title = reminder ? "Lembrete: escolha seu stand" : "Escolha seu stand liberada";
+  const title = reminder ? "Lembrete: escolha seu stand" : "Escolha do stand liberada";
   const range = slotStart !== null && slotEnd !== null ? `${slotStart}-${slotEnd}` : null;
   const quantity = standsQuantity && standsQuantity > 0 ? standsQuantity : null;
+  const allowlistMessage = Array.isArray(slotAllowlist) && slotAllowlist.length > 0
+    ? ` Stands disponíveis: ${slotAllowlist.join(", ")}.`
+    : "";
 
   const deadlineText = deadline ? ` até ${deadline}` : "";
-  const rangeText = range ? ` Intervalo disponível: ${range}.` : "";
+  const rangeText = !allowlistMessage && range ? ` Intervalo disponível: ${range}.` : "";
   const quantityText = quantity ? ` Selecione ${quantity} ${quantity > 1 ? "stands" : "stand"}.` : "";
 
   return {
     title,
-    body: `${companyName} já pode escolher o stand${deadlineText}.${rangeText}${quantityText}`.trim(),
+    body: `${companyName} já pode escolher o stand${deadlineText}.${rangeText}${quantityText}${allowlistMessage}`.trim(),
   };
 };
 
@@ -158,6 +163,15 @@ serve(async (req) => {
   const slotStart = typeof payload.slotStart === "number" ? payload.slotStart : null;
   const slotEnd = typeof payload.slotEnd === "number" ? payload.slotEnd : null;
   const reminder = Boolean(payload.reminder);
+  const slotAllowlist = Array.isArray(payload.slotAllowlist)
+    ? Array.from(
+        new Set(
+          payload.slotAllowlist
+            .map((value) => Number.parseInt(String(value), 10))
+            .filter((value) => Number.isFinite(value))
+        )
+      ).sort((a, b) => a - b)
+    : null;
 
   if (!registrationId) {
     return new Response(JSON.stringify({ error: "registrationId is required" }), {
@@ -198,6 +212,7 @@ serve(async (req) => {
     companyName,
     slotStart,
     slotEnd,
+    slotAllowlist,
     formattedDeadline,
     standsQuantity,
     reminder
@@ -208,10 +223,12 @@ serve(async (req) => {
     companyName,
     slotStart,
     slotEnd,
+  slotAllowlist,
     windowExpiresAt: payload.windowExpiresAt ?? null,
     standsQuantity,
     reminder,
     sentAt: new Date().toISOString(),
+    url: "/escolha-seu-stand",
   };
 
   let delivered = 0;

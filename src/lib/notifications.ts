@@ -1,5 +1,9 @@
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
-import type { RegistrationStatus } from "@/integrations/supabase/types";
+import type {
+  RegistrationStatus,
+  WebPushSubscriptionInsert,
+  WebPushSubscriptionUpdate,
+} from "@/integrations/supabase/types";
 
 const VAPID_PUBLIC_KEY = (import.meta.env.VITE_WEB_PUSH_PUBLIC_KEY ?? "").trim();
 const HASH_SALT = (import.meta.env.VITE_PUSH_HASH_SALT ?? "afogados-empreende-pwa").trim();
@@ -43,7 +47,22 @@ const ensureServiceWorkerRegistration = async (): Promise<ServiceWorkerRegistrat
     throw new Error("Notificações push não são suportadas neste dispositivo ou navegador.");
   }
 
-  return navigator.serviceWorker.ready;
+  try {
+    const existing = await navigator.serviceWorker.getRegistration();
+    if (existing) {
+      return existing;
+    }
+  } catch (error) {
+    console.warn("[Push] Falha ao obter service worker registrado, tentando fallback:", error);
+  }
+
+  try {
+    return await navigator.serviceWorker.ready;
+  } catch (error) {
+    console.warn("[Push] Service worker não ficou pronto a tempo, tentando novo registro:", error);
+  }
+
+  return navigator.serviceWorker.register("/sw.js");
 };
 
 export const getActivePushSubscription = async (): Promise<PushSubscription | null> => {
@@ -68,6 +87,8 @@ export const requestBrowserNotificationPermission = async (): Promise<Notificati
   return Notification.permission;
 };
 
+let cachedApplicationServerKey: ArrayBuffer | null = null;
+
 const getApplicationServerKey = (): ArrayBuffer => {
   if (!VAPID_PUBLIC_KEY) {
     throw new Error(
@@ -75,7 +96,12 @@ const getApplicationServerKey = (): ArrayBuffer => {
     );
   }
 
-  return base64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer;
+  if (cachedApplicationServerKey) {
+    return cachedApplicationServerKey;
+  }
+
+  cachedApplicationServerKey = base64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer;
+  return cachedApplicationServerKey;
 };
 
 export const hasActiveSubscription = async (registrationId: string, documentDigits: string): Promise<boolean> => {
@@ -131,6 +157,8 @@ export const subscribeForRegistrationUpdates = async ({
   const registration = await ensureServiceWorkerRegistration();
   const applicationServerKey = getApplicationServerKey();
 
+  const hashedCpfPromise = hashDocument(cpfDigits);
+
   let pushSubscription = await registration.pushManager.getSubscription();
   if (!pushSubscription) {
     pushSubscription = await registration.pushManager.subscribe({
@@ -139,23 +167,22 @@ export const subscribeForRegistrationUpdates = async ({
     });
   }
 
-  const hashedCpf = await hashDocument(cpfDigits);
+  const hashedCpf = await hashedCpfPromise;
+
+  const payload: WebPushSubscriptionInsert = {
+    registration_id: registrationId,
+    cpf_hash: hashedCpf,
+    endpoint: pushSubscription.endpoint,
+    subscription: pushSubscription.toJSON(),
+    status: "active",
+    last_status: status,
+    company_name: companyName,
+    updated_at: new Date().toISOString(),
+  };
 
   const { error } = await supabase
     .from("web_push_subscriptions")
-    .upsert(
-      {
-        registration_id: registrationId,
-        cpf_hash: hashedCpf,
-        endpoint: pushSubscription.endpoint,
-        subscription: pushSubscription.toJSON(),
-        status: "active",
-        last_status: status,
-        company_name: companyName,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "registration_id,endpoint,cpf_hash" }
-    );
+    .upsert(payload as never, { onConflict: "registration_id,endpoint,cpf_hash" });
 
   if (error) {
     console.error("[Push] Erro ao salvar assinatura: ", error);
@@ -186,9 +213,14 @@ export const unsubscribeFromRegistrationUpdates = async (
 
   try {
     const hashedCpf = await hashDocument(documentDigits);
+    const updatePayload: WebPushSubscriptionUpdate = {
+      status: "revoked",
+      updated_at: new Date().toISOString(),
+    };
+
     const { error } = await supabase
       .from("web_push_subscriptions")
-      .update({ status: "revoked", updated_at: new Date().toISOString() })
+      .update(updatePayload as never)
       .eq("registration_id", registrationId)
       .eq("endpoint", pushSubscription.endpoint)
       .eq("cpf_hash", hashedCpf);

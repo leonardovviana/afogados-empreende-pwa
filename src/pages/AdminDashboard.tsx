@@ -50,6 +50,7 @@ import {
   computeStandSelectionStatus,
   openStandSelectionWindow,
   parseStandChoices,
+  parseStandSlotExpression,
   serializeStandChoices,
   triggerStandSelectionNotification,
   type StandSelectionRegistration,
@@ -158,6 +159,7 @@ interface Registration {
   total_amount: number;
   stand_selection_slot_start: number | null;
   stand_selection_slot_end: number | null;
+  stand_selection_slot_allowlist: string | null;
   stand_selection_window_started_at: string | null;
   stand_selection_window_expires_at: string | null;
   stand_selection_choices: string | null;
@@ -194,6 +196,7 @@ const mapRowToRegistration = (row: ExhibitorRegistrationRow): Registration => {
     total_amount: storedTotal > 0 ? storedTotal : fallbackTotal,
     stand_selection_slot_start: row.stand_selection_slot_start ?? null,
     stand_selection_slot_end: row.stand_selection_slot_end ?? null,
+  stand_selection_slot_allowlist: row.stand_selection_slot_allowlist ?? null,
     stand_selection_window_started_at: row.stand_selection_window_started_at ?? null,
     stand_selection_window_expires_at: row.stand_selection_window_expires_at ?? null,
     stand_selection_choices: row.stand_selection_choices ?? null,
@@ -293,7 +296,7 @@ const AdminDashboard = () => {
   const [salesControlAvailable, setSalesControlAvailable] = useState(true);
   const [standSelectionTab, setStandSelectionTab] = useState<"queue" | "completed">("queue");
   const [standSelectionSearch, setStandSelectionSearch] = useState("");
-  const [standWindowForm, setStandWindowForm] = useState<Record<string, { slotStart: string; slotEnd: string; duration: string }>>({});
+  const [standWindowForm, setStandWindowForm] = useState<Record<string, { slotStart: string; slotEnd: string; allowedSlots: string; duration: string }>>({});
   const [standWindowSubmittingId, setStandWindowSubmittingId] = useState<string | null>(null);
   const [standNotificationId, setStandNotificationId] = useState<string | null>(null);
   const [editingSelectionState, setEditingSelectionState] = useState<{
@@ -744,12 +747,13 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     setStandWindowForm((current) => {
-      const next: Record<string, { slotStart: string; slotEnd: string; duration: string }> = {};
+      const next: Record<string, { slotStart: string; slotEnd: string; allowedSlots: string; duration: string }> = {};
 
       for (const registration of standSelectionQueue) {
         const existing = current[registration.id];
         const slotStart = registration.stand_selection_slot_start;
         const slotEnd = registration.stand_selection_slot_end;
+        const allowlist = registration.stand_selection_slot_allowlist ?? "";
 
         let duration = existing?.duration ?? null;
 
@@ -773,6 +777,7 @@ const AdminDashboard = () => {
         next[registration.id] = {
           slotStart: existing?.slotStart ?? (slotStart != null ? String(slotStart) : ""),
           slotEnd: existing?.slotEnd ?? (slotEnd != null ? String(slotEnd) : ""),
+          allowedSlots: existing?.allowedSlots ?? allowlist,
           duration,
         };
       }
@@ -789,6 +794,7 @@ const AdminDashboard = () => {
       slotEnd: registration.stand_selection_slot_end != null
         ? String(registration.stand_selection_slot_end)
         : "",
+      allowedSlots: registration.stand_selection_slot_allowlist ?? "",
       duration: String(STAND_SELECTION_DURATION_MINUTES),
     };
 
@@ -815,7 +821,8 @@ const AdminDashboard = () => {
     (registration: Registration) => {
       const range = buildStandRange(
         registration.stand_selection_slot_start,
-        registration.stand_selection_slot_end
+        registration.stand_selection_slot_end,
+        registration.stand_selection_slot_allowlist
       );
       const currentChoices = registration.stand_selection_choices
         ? parseStandChoices(registration.stand_selection_choices)
@@ -876,7 +883,7 @@ const AdminDashboard = () => {
           stand_selection_choices: serializedChoices || null,
           stand_selection_submitted_at: serializedChoices ? nowIso : null,
           updated_at: nowIso,
-        })
+        } as never)
         .eq("id", editingSelectionState.registration.id);
 
       if (error) {
@@ -898,13 +905,22 @@ const AdminDashboard = () => {
   }, [closeEditingSelection, editingSelectionChoices, editingSelectionState, fetchDashboardData]);
 
   const handleStandWindowInputChange = useCallback(
-    (registrationId: string, field: "slotStart" | "slotEnd" | "duration") =>
+    (
+      registrationId: string,
+      field: "slotStart" | "slotEnd" | "duration" | "allowedSlots"
+    ) =>
       (event: ChangeEvent<HTMLInputElement>) => {
-        const digits = event.target.value.replace(/[^0-9]/g, "");
+        const rawValue = event.target.value;
+        const sanitizedValue =
+          field === "allowedSlots"
+            ? rawValue.replace(/[^0-9,\-;\s]/g, "")
+            : rawValue.replace(/[^0-9]/g, "");
+
         setStandWindowForm((current) => {
           const existing = current[registrationId] ?? {
             slotStart: "",
             slotEnd: "",
+            allowedSlots: "",
             duration: String(STAND_SELECTION_DURATION_MINUTES),
           };
 
@@ -912,7 +928,7 @@ const AdminDashboard = () => {
             ...current,
             [registrationId]: {
               ...existing,
-              [field]: digits,
+              [field]: sanitizedValue,
             },
           };
         });
@@ -929,18 +945,31 @@ const AdminDashboard = () => {
         slotEnd: registration.stand_selection_slot_end != null
           ? String(registration.stand_selection_slot_end)
           : "",
+        allowedSlots: registration.stand_selection_slot_allowlist ?? "",
         duration: String(STAND_SELECTION_DURATION_MINUTES),
       };
       const slotStart = Number.parseInt(formValues.slotStart, 10);
       const slotEnd = Number.parseInt(formValues.slotEnd, 10);
+      const allowlistValues = parseStandSlotExpression(formValues.allowedSlots);
       const duration = Number.parseInt(formValues.duration, 10) || STAND_SELECTION_DURATION_MINUTES;
 
-      if (!Number.isFinite(slotStart) || !Number.isFinite(slotEnd)) {
-        toast.error("Informe o intervalo de stands para liberar a janela.");
+      const derivedSlotStart = Number.isFinite(slotStart)
+        ? slotStart
+        : allowlistValues.length > 0
+          ? allowlistValues[0]
+          : Number.NaN;
+      const derivedSlotEnd = Number.isFinite(slotEnd)
+        ? slotEnd
+        : allowlistValues.length > 0
+          ? allowlistValues[allowlistValues.length - 1]
+          : Number.NaN;
+
+      if (!Number.isFinite(derivedSlotStart) || !Number.isFinite(derivedSlotEnd)) {
+        toast.error("Informe o intervalo ou lista de stands para liberar a janela.");
         return;
       }
 
-      if (slotEnd < slotStart) {
+      if (derivedSlotEnd < derivedSlotStart) {
         toast.error("O número final não pode ser menor que o inicial.");
         return;
       }
@@ -953,8 +982,9 @@ const AdminDashboard = () => {
       try {
         setStandWindowSubmittingId(registration.id);
         await openStandSelectionWindow(registration.id, {
-          slotStart,
-          slotEnd,
+          slotStart: derivedSlotStart,
+          slotEnd: derivedSlotEnd,
+          allowlist: allowlistValues,
           durationMinutes: duration,
         });
         toast.success(`Janela de seleção liberada para ${registration.company_name}.`);
@@ -983,6 +1013,7 @@ const AdminDashboard = () => {
           companyName: registration.company_name,
           slotStart: registration.stand_selection_slot_start,
           slotEnd: registration.stand_selection_slot_end,
+          slotAllowlist: parseStandChoices(registration.stand_selection_slot_allowlist ?? null),
           windowExpiresAt: registration.stand_selection_window_expires_at,
           standsQuantity: registration.stands_quantity,
           reminder,
@@ -1038,7 +1069,9 @@ const AdminDashboard = () => {
           (expiresAt === null || expiresAt > Date.now());
 
         const formValues = standWindowForm[existingRegistration.id];
-        const hasFormRange = Boolean(formValues?.slotStart && formValues?.slotEnd);
+        const hasFormRange = Boolean(
+          (formValues?.slotStart && formValues?.slotEnd) || formValues?.allowedSlots
+        );
 
         if (!hasActiveWindow) {
           if (hasFormRange || existingRegistration.stand_selection_slot_start != null) {
@@ -1731,6 +1764,12 @@ const AdminDashboard = () => {
                                     className="w-24"
                                   />
                                 </div>
+                                <Input
+                                  value={form.allowedSlots}
+                                  onChange={handleStandWindowInputChange(registration.id, "allowedSlots")}
+                                  placeholder="Lista personalizada (1-5,8,10)"
+                                  className="mt-2"
+                                />
                                 <div className="mt-2 flex items-center gap-2">
                                   <Input
                                     type="number"
@@ -1747,6 +1786,11 @@ const AdminDashboard = () => {
                                     ? `${registration.stand_selection_slot_start}-${registration.stand_selection_slot_end}`
                                     : "—"}
                                 </p>
+                                {registration.stand_selection_slot_allowlist ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    Lista atual: {registration.stand_selection_slot_allowlist}
+                                  </p>
+                                ) : null}
                               </TableCell>
                               <TableCell>
                                 <Badge

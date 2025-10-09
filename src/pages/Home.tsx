@@ -164,8 +164,8 @@ const Home = () => {
                       <CalendarDays size={20} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-primary dark:text-primary-foreground">6, 7 e 8 de novembro</p>
-                      <p className="text-xs text-muted-foreground">Programação intensa de 18h às 23h</p>
+                      <p className="text-sm font-semibold text-primary dark:text-primary-foreground">12, 13 e 14 de setembro</p>
+                      <p className="text-xs text-muted-foreground">Programação diária das 17h às 22h (abertura às 19h na sexta)</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 rounded-2xl border border-primary/15 bg-white/80 p-4 shadow-sm backdrop-blur-md dark:border-primary/40 dark:bg-primary/20">
@@ -173,8 +173,8 @@ const Home = () => {
                       <MapPin size={20} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-primary dark:text-primary-foreground">Praça Arruda Câmara e Praça Padre Carlos Cottart </p>
-                      <p className="text-xs text-muted-foreground">Centro de Afogados da Ingazeira - PE</p>
+                      <p className="text-sm font-semibold text-primary dark:text-primary-foreground">Centro Desportivo Municipal – Av. Manoel Borba, Centro</p>
+                      <p className="text-xs text-muted-foreground">Afogados da Ingazeira - PE</p>
                     </div>
                   </div>
                 </div>

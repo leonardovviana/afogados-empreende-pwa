@@ -1,7 +1,7 @@
+import manualPdf from "@/assets/manualexpositor.pdf";
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import manualPdf from "@/assets/manualexpositor.pdf";
 import { Download, FileText } from "lucide-react";
 
 const Manual = () => {

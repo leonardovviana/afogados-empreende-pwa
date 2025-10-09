@@ -3,7 +3,6 @@ import logoCdl from "@/assets/logocdl.png";
 import logoFeira from "@/assets/logofeira.png";
 import logoSala from "@/assets/logosala.png";
 import logoSebrae from "@/assets/logosebrae.png";
-import logoUnicef from "@/assets/logounicef.png";
 import { CalendarDays, Instagram, MapPin, MessageCircle } from "lucide-react";
 import { memo, useMemo } from "react";
 import { Link } from "react-router-dom";
@@ -16,7 +15,6 @@ const REALIZATION_BRANDS = [
 
 const PARTNER_BRANDS = [
   { src: logoCdl, alt: "CDL Afogados da Ingazeira" },
-  { src: logoUnicef, alt: "UNICEF" },
 ] as const;
 
 const SOCIAL_LINKS = [
@@ -59,11 +57,11 @@ const Footer = () => {
             <div className="space-y-2 text-sm text-muted-foreground/80">
               <p className="flex items-center gap-2">
                 <MapPin size={18} className="text-primary" />
-                Praça Arruda Câmara e Praça Padre Carlos Cottart • Afogados da Ingazeira - PE
+                Centro Desportivo Municipal – Av. Manoel Borba, Centro • Afogados da Ingazeira - PE
               </p>
               <p className="flex items-center gap-2">
                 <CalendarDays size={18} className="text-primary" />
-                6, 7 e 8 de novembro de 2025
+                12, 13 e 14 de setembro de 2025
               </p>
             </div>
             <div className="flex items-center gap-3 pt-4">

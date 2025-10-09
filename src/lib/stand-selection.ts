@@ -17,6 +17,7 @@ export type StandSelectionStatus =
 export interface StandSelectionWindowState {
   slotStart: number | null;
   slotEnd: number | null;
+  allowlist: string | null;
   startedAt: string | null;
   expiresAt: string | null;
   choices: string | null;
@@ -28,6 +29,7 @@ export interface StandSelectionWindowState {
 export interface StandSelectionRegistration extends ExhibitorRegistrationRow {
   stand_selection_slot_start: number | null;
   stand_selection_slot_end: number | null;
+  stand_selection_slot_allowlist: string | null;
   stand_selection_window_started_at: string | null;
   stand_selection_window_expires_at: string | null;
   stand_selection_choices: string | null;
@@ -47,13 +49,27 @@ export const parseStandChoices = (value: string | null): number[] => {
 };
 
 export const serializeStandChoices = (choices: number[]): string =>
-  choices
-    .map((choice) => Number(choice))
-    .filter((choice) => Number.isFinite(choice))
+  Array.from(
+    new Set(
+      choices
+        .map((choice) => Number(choice))
+        .filter((choice) => Number.isFinite(choice))
+    )
+  )
     .sort((a, b) => a - b)
     .join(",");
 
-export const buildStandRange = (slotStart: number | null, slotEnd: number | null): number[] => {
+export const buildStandRange = (
+  slotStart: number | null,
+  slotEnd: number | null,
+  allowlist: string | null = null
+): number[] => {
+  if (allowlist && allowlist.trim().length > 0) {
+    return parseStandChoices(allowlist)
+      .filter((value, index, array) => array.indexOf(value) === index)
+      .sort((a, b) => a - b);
+  }
+
   if (slotStart == null || slotEnd == null) {
     return [];
   }
@@ -65,6 +81,44 @@ export const buildStandRange = (slotStart: number | null, slotEnd: number | null
     range.push(value);
   }
   return range;
+};
+
+export const parseStandSlotExpression = (expression: string): number[] => {
+  if (!expression) {
+    return [];
+  }
+
+  const tokens = expression
+    .split(/[;,]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+
+  const values = new Set<number>();
+
+  for (const token of tokens) {
+    if (/^\d+-\d+$/.test(token)) {
+      const [startRaw, endRaw] = token.split("-");
+      const start = Number.parseInt(startRaw, 10);
+      const end = Number.parseInt(endRaw, 10);
+      if (Number.isFinite(start) && Number.isFinite(end)) {
+        const rangeStart = Math.min(start, end);
+        const rangeEnd = Math.max(start, end);
+        for (let value = rangeStart; value <= rangeEnd; value += 1) {
+          values.add(value);
+        }
+      }
+      continue;
+    }
+
+    if (/^\d+$/.test(token)) {
+      const value = Number.parseInt(token, 10);
+      if (Number.isFinite(value)) {
+        values.add(value);
+      }
+    }
+  }
+
+  return Array.from(values).sort((a, b) => a - b);
 };
 
 export const computeStandSelectionStatus = (
@@ -121,6 +175,7 @@ const SELECT_COLUMNS = [
   "updated_at",
   "stand_selection_slot_start",
   "stand_selection_slot_end",
+  "stand_selection_slot_allowlist",
   "stand_selection_window_started_at",
   "stand_selection_window_expires_at",
   "stand_selection_choices",
@@ -164,11 +219,18 @@ export interface StandSelectionWindowInput {
   slotEnd: number;
   durationMinutes?: number;
   status?: RegistrationStatus;
+  allowlist?: number[];
 }
 
 export const openStandSelectionWindow = async (
   registrationId: string,
-  { slotStart, slotEnd, durationMinutes = STAND_SELECTION_DURATION_MINUTES, status = "Escolha seu stand" }: StandSelectionWindowInput
+  {
+    slotStart,
+    slotEnd,
+    durationMinutes = STAND_SELECTION_DURATION_MINUTES,
+    status = "Escolha seu stand",
+    allowlist,
+  }: StandSelectionWindowInput
 ): Promise<void> => {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase não configurado");
@@ -181,6 +243,8 @@ export const openStandSelectionWindow = async (
     status,
     stand_selection_slot_start: slotStart,
     stand_selection_slot_end: slotEnd,
+    stand_selection_slot_allowlist:
+      allowlist && allowlist.length > 0 ? serializeStandChoices(allowlist) : null,
     stand_selection_window_started_at: now.toISOString(),
     stand_selection_window_expires_at: expires.toISOString(),
     stand_selection_choices: null,
@@ -238,6 +302,7 @@ export interface NotifyStandSelectionParams {
   companyName: string;
   slotStart: number | null;
   slotEnd: number | null;
+  slotAllowlist?: number[];
   windowExpiresAt: string | null;
   standsQuantity: number;
   reminder?: boolean;
@@ -251,6 +316,7 @@ export const triggerStandSelectionNotification = async ({
   windowExpiresAt,
   standsQuantity,
   reminder = false,
+  slotAllowlist,
 }: NotifyStandSelectionParams): Promise<void> => {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase não configurado");
@@ -262,6 +328,7 @@ export const triggerStandSelectionNotification = async ({
       companyName,
       slotStart,
       slotEnd,
+  slotAllowlist: slotAllowlist && slotAllowlist.length > 0 ? slotAllowlist : null,
       windowExpiresAt,
       standsQuantity,
       reminder,

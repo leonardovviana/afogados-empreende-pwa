@@ -35,6 +35,7 @@ type NotificationPayload = {
   status: RegistrationStatus;
   companyName: string;
   sentAt: string;
+  url?: string; // Added optional URL field
 };
 
 type NotifyStatusRequest = {
@@ -50,27 +51,32 @@ const buildNotificationContent = (status: RegistrationStatus, companyName: strin
       return {
         title: "Cadastro aprovado!",
         body: `${companyName} está pré-aprovada. Baixe o boleto e garanta seu estande dentro do prazo.`,
+        url: "/consulta", // Added URL for this status
       };
     case "Participação confirmada":
       return {
         title: "Participação confirmada",
         body: `${companyName} teve o pagamento validado. Prepare-se para a feira!`,
+        url: "/consulta", // Added URL for this status
       };
     case "Escolha seu stand":
       return {
         title: "Escolha de stand liberada",
         body: `${companyName} já pode acessar o portal e selecionar o stand disponível.`,
+        url: "/escolha-seu-stand", // Added URL for this status
       };
     case "Cancelado":
       return {
         title: "Atualização de cadastro",
         body: `${companyName} teve o cadastro atualizado para cancelado. Contate a coordenação em caso de dúvidas.`,
+        url: "/consulta", // Added URL for this status
       };
     case "Pendente":
     default:
       return {
         title: "Cadastro em análise",
         body: `${companyName} segue em análise. Avisaremos assim que houver novidades.`,
+        url: "/consulta", // Added URL for this status
       };
   }
 };
@@ -158,6 +164,7 @@ serve(async (req) => {
     status,
     companyName,
     sentAt,
+    url: notificationContent.url, // Include the URL in the notification payload
   };
 
   let delivered = 0;

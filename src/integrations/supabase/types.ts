@@ -37,6 +37,7 @@ export interface ExhibitorRegistrationRow {
 	total_amount: number;
 	stand_selection_slot_start: number | null;
 	stand_selection_slot_end: number | null;
+	stand_selection_slot_allowlist: string | null;
 	stand_selection_window_started_at: string | null;
 	stand_selection_window_expires_at: string | null;
 	stand_selection_choices: string | null;
@@ -66,6 +67,7 @@ export type ExhibitorRegistrationInsert = {
 	cpf_cnpj_normalized?: string | null;
 	stand_selection_slot_start?: number | null;
 	stand_selection_slot_end?: number | null;
+	stand_selection_slot_allowlist?: string | null;
 	stand_selection_window_started_at?: string | null;
 	stand_selection_window_expires_at?: string | null;
 	stand_selection_choices?: string | null;
