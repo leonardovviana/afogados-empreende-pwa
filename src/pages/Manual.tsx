@@ -1,19 +1,10 @@
 import Footer from "@/components/Footer";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Download, FileText, Instagram, MapPin, Phone } from "lucide-react";
+import manualPdf from "@/assets/manualexpositor.pdf";
+import { Download, FileText } from "lucide-react";
 
 const Manual = () => {
-  const guidelines = [
-    "Chegue com antecedência para montagem do stand",
-    "Mantenha seu espaço organizado e limpo",
-    "Respeite os horários de funcionamento do evento",
-    "Utilize apenas o espaço contratado",
-    "Não é permitida música alta ou barulhos excessivos",
-    "Produtos e serviços devem estar de acordo com a legislação",
-    "É obrigatório o uso de crachá de identificação",
-    "Respeite as normas de segurança e saúde",
-  ];
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden">
@@ -24,161 +15,40 @@ const Manual = () => {
 
   <main className="flex-1 pt-20 md:pt-24 pb-12 md:pb-16 bg-gradient-to-b from-background via-secondary/10 to-sand-light/25">
         <div className="container mx-auto px-4 max-w-4xl">
-          <div className="glass-card rounded-3xl shadow-elegant p-5 md:p-8 animate-fade-in-up glass-card-hover">
-            <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6">
-              <div className="bg-primary/10 p-2 md:p-3 rounded-xl">
-                <FileText className="text-primary" size={28} />
+          <div className="glass-card rounded-[2.5rem] shadow-mega p-8 md:p-12 text-center space-y-6">
+            <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-primary">
+              Manual do Expositor
+            </span>
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <FileText className="h-8 w-8" />
               </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-card-foreground">
-                  Manual do Expositor
+              <div className="max-w-2xl space-y-3">
+                <h1 className="text-3xl font-bold text-card-foreground sm:text-4xl">
+                  Tudo o que você precisa para montar seu stand com confiança
                 </h1>
-                <p className="text-sm md:text-base text-muted-foreground">
-                  Orientações importantes para sua participação
+                <p className="text-sm text-muted-foreground sm:text-base">
+                  Baixe o manual oficial da feira e confira orientações de montagem, cronograma completo e regras essenciais para garantir uma participação incrível.
                 </p>
               </div>
             </div>
 
-            {/* Download Button */}
-            <div className="bg-accent/10 rounded-xl p-4 md:p-6 mb-6 md:mb-8 flex flex-col sm:flex-row items-center justify-between gap-3 md:gap-4">
-              <div>
-                <h3 className="font-bold text-card-foreground mb-1 text-sm md:text-base">
-                  Manual Completo em PDF
-                </h3>
-                <p className="text-xs md:text-sm text-muted-foreground">
-                  Baixe o manual completo com todas as informações
+            <div className="mx-auto w-full max-w-xl rounded-3xl bg-gradient-to-r from-secondary to-accent p-[1px] shadow-xl">
+              <div className="rounded-[calc(1.5rem-1px)] bg-background p-6 sm:p-8">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Arquivo em PDF atualizado para a edição 2025 da Feira do Empreendedor.
                 </p>
+                <Button asChild size="lg" className="w-full rounded-2xl bg-secondary text-secondary-foreground hover:bg-secondary-light text-base font-semibold py-6">
+                  <a href={manualPdf} download>
+                    <Download className="mr-2 h-5 w-5" /> Baixar manual completo
+                  </a>
+                </Button>
               </div>
-              <Button className="bg-accent hover:bg-accent-light shrink-0 text-sm">
-                <Download className="mr-2" size={16} />
-                Baixar PDF
-              </Button>
             </div>
 
-            {/* Informações Gerais */}
-            <section className="mb-6 md:mb-8">
-              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-card-foreground">
-                Informações Gerais
-              </h2>
-              <div className="space-y-3 md:space-y-4 text-sm md:text-base text-muted-foreground">
-                <p>
-                  <strong className="text-card-foreground">Data do Evento:</strong> 6, 7 e 8 de Novembro de 2025
-                </p>
-                <p>
-                  <strong className="text-card-foreground">Horário de Funcionamento:</strong> 18h às 23h
-                </p>
-                <p>
-                  <strong className="text-card-foreground">Montagem:</strong> 5 de Novembro, até às 18h
-                </p>
-                <p>
-                  <strong className="text-card-foreground">Desmontagem:</strong> 8 de Novembro, a partir das 23h
-                </p>
-              </div>
-            </section>
-
-            {/* Normas */}
-            <section className="mb-6 md:mb-8">
-              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-card-foreground">
-                Normas e Diretrizes
-              </h2>
-              <div className="space-y-2 md:space-y-3">
-                {guidelines.map((guideline) => (
-                  <div key={guideline} className="flex items-start gap-2 md:gap-3 animate-fade-in">
-                    <CheckCircle className="text-secondary shrink-0 mt-1" size={18} />
-                    <p className="text-sm md:text-base text-muted-foreground">{guideline}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* O que levar */}
-            <section className="mb-6 md:mb-8">
-              <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4 text-card-foreground">
-                O Que Levar
-              </h2>
-              <div className="grid md:grid-cols-2 gap-3 md:gap-4">
-                <div className="bg-muted/50 rounded-lg p-3 md:p-4">
-                  <h3 className="font-bold mb-2 text-card-foreground text-sm md:text-base">Documentação</h3>
-                  <ul className="text-xs md:text-sm text-muted-foreground space-y-1">
-                    <li>• RG e CPF do responsável</li>
-                    <li>• CNPJ ou MEI</li>
-                    <li>• Alvará de funcionamento</li>
-                    <li>• Notas fiscais dos produtos</li>
-                  </ul>
-                </div>
-
-                <div className="bg-muted/50 rounded-lg p-3 md:p-4">
-                  <h3 className="font-bold mb-2 text-card-foreground text-sm md:text-base">Material do Stand</h3>
-                  <ul className="text-xs md:text-sm text-muted-foreground space-y-1">
-                    <li>• Banners e material de divulgação</li>
-                    <li>• Produtos para exposição</li>
-                    <li>• Material de ponto de venda</li>
-                    <li>• Equipamentos necessários</li>
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            {/* Contato */}
-            <section className="bg-primary/10 rounded-xl p-4 md:p-6">
-              <h2 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-primary">
-                Fale com a organização
-              </h2>
-              <p className="text-sm md:text-base text-muted-foreground mb-4">
-                Estamos prontos para ajudar expositores e visitantes com qualquer dúvida:
-              </p>
-
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/15 text-primary rounded-lg p-2">
-                    <Phone size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs md:text-sm font-semibold text-card-foreground">Telefone / WhatsApp</p>
-                    <a
-                      href="https://wa.me/5587999781331"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm md:text-base text-primary hover:underline"
-                    >
-                      +55 (87) 99978-1331
-                    </a>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/15 text-primary rounded-lg p-2">
-                    <Instagram size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs md:text-sm font-semibold text-card-foreground">Instagram oficial</p>
-                    <a
-                      href="https://instagram.com/sadetur_afdaingazeira"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm md:text-base text-primary hover:underline"
-                    >
-                      @sadetur_afdaingazeira
-                    </a>
-                    <p className="text-xs md:text-sm text-muted-foreground">Acompanhe avisos, cronograma e bastidores</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/15 text-primary rounded-lg p-2">
-                    <MapPin size={18} />
-                  </div>
-                  <div>
-                    <p className="text-xs md:text-sm font-semibold text-card-foreground">Endereço da feira</p>
-                    <p className="text-sm md:text-base text-muted-foreground">
-                      Praça Arruda Câmara e Praça Padre Carlos Cottart, Centro<br />
-                      Afogados da Ingazeira - PE
-                    </p>
-                    <p className="text-xs md:text-sm text-muted-foreground">Estrutura principal montada ao lado da Prefeitura Municipal</p>
-                  </div>
-                </div>
-              </div>
-            </section>
+            <p className="text-xs text-muted-foreground">
+              Em caso de dúvidas adicionais, fale com a equipe organizadora pelos canais oficiais.
+            </p>
           </div>
         </div>
       </main>
