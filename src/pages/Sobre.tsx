@@ -12,12 +12,9 @@ import {
   Award,
   Blocks,
   Building2,
-  CalendarCheck,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   ExternalLink,
-  MapPin,
   Mic2,
   Music2,
   Newspaper,
@@ -106,7 +103,7 @@ const pillars = [
   },
   {
     icon: Tv,
-    title: "Cobertura ELO TV",
+    title: "Cobertura ELLO TV",
     description: "Bastidores, entrevista e grandes momentos da Feira.",
   },
   {
@@ -142,24 +139,6 @@ const mediaHighlights = [
     description: "Leia publicações sobre os destaques das edições anteriores.",
     href: "pe.agenciasebrae.com.br/cultura-empreendedora/sebrae-impulsiona-7a-feira-de-empreendedorismo-de-afogados-da-ingazeira/",
     cta: "Ler matéria",
-  },
-];
-
-const eventInformation = [
-  {
-    icon: MapPin,
-    label: "Local",
-    value: "Centro Desportivo Municipal – Av. Manoel Borba, Centro, Afogados da Ingazeira - PE",
-  },
-  {
-    icon: CalendarCheck,
-    label: "Data",
-    value: "12 a 14 de setembro de 2025",
-  },
-  {
-    icon: Clock3,
-    label: "Horários",
-    value: "Abertura às 19h na sexta • Programação diária das 17h às 22h",
   },
 ];
 
@@ -627,64 +606,6 @@ const Sobre = () => {
                   ))}
                 </ul>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="container mx-auto px-4">
-          <div className="rounded-3xl border border-primary/10 bg-gradient-to-br from-white/80 via-secondary/10 to-accent/10 p-6 shadow-elegant backdrop-blur md:p-10">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-xl space-y-3">
-                <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-primary">
-                  Informações gerais
-                </span>
-                <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
-                  Onde e quando acontece a 8ª edição
-                </h2>
-                <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-                  Prepare sua equipe com antecedência. Confira o endereço, as datas e os horários oficiais da
-                  Feira do Empreendedor 2025 e compartilhe com quem ainda está planejando a visita.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <a
-                  href="https://wa.me/5587999781331?text=Olá%2C%20quero%20participar%20da%20Feira%20do%20Empreendedor"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  <Button className="w-full rounded-2xl bg-secondary px-6 py-5 text-sm font-semibold text-secondary-foreground transition hover:bg-secondary-light sm:w-auto">
-                    Falar no WhatsApp
-                  </Button>
-                </a>
-                <Link to="/contato" className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-2xl border-primary/20 px-6 py-5 text-sm font-semibold text-primary hover:bg-primary/10"
-                  >
-                    Enviar mensagem
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              {eventInformation.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-primary/10 bg-white/85 p-5 shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-lg"
-                >
-                  <div className="flex items-center gap-3 text-primary">
-                    <item.icon className="h-5 w-5" />
-                    <span className="text-xs font-semibold uppercase tracking-[0.25em]">
-                      {item.label}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                    {item.value}
-                  </p>
-                </div>
-              ))}
             </div>
           </div>
         </section>
